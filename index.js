@@ -6,6 +6,7 @@
 const fs = require('fs');
 const async = require('async');
 const config = require('config');
+const CronJob = require('cron').CronJob;
 
 // Should load all modules dynamically
 var httpRequest = require('./app/modules/httpRequest');
@@ -30,6 +31,7 @@ var mongoPuller = new MongoPuller({
   user: config.mongodb.USER,
   pass: config.mongodb.PASS
 });
+
 
 /*
 httpRequest({ host: 'status.driveshare.org', path: '/api/total'}, function(err, response) {
@@ -151,8 +153,8 @@ var pullFromMongo = function pullFromMongo(data) {
 
     mongoPuller.close(function() {
       console.log("[INDEX] Ran mongo close");
-      console.log("[MONGO CLOSE] Active handles: ", process._getActiveHandles());
-      console.log("[MONGO CLOSE] Active requests: ", process._getActiveRequests());
+      //console.log("[MONGO CLOSE] Active handles: ", process._getActiveHandles());
+      //console.log("[MONGO CLOSE] Active requests: ", process._getActiveRequests());
     });
 
     console.log("Sending apiStatsData to ES: ", apiStatsData);
@@ -164,8 +166,8 @@ var pullFromMongo = function pullFromMongo(data) {
 
       esPusher.close(function() {
         console.log("[INDEX] Ran ES close");
-        console.log("[ES CLOSE] Active handles: ", process._getActiveHandles());
-        console.log("[ES CLOSE] Active requests: ", process._getActiveRequests());
+        //console.log("[ES CLOSE] Active handles: ", process._getActiveHandles());
+        //console.log("[ES CLOSE] Active requests: ", process._getActiveRequests());
       });
 
       console.log("Wrote File data to ES");
@@ -173,4 +175,9 @@ var pullFromMongo = function pullFromMongo(data) {
   }
 }
 
-pullFromMongo();
+new CronJob('1 * * * * *', function() {
+  console.log("[CRON] Running pullFromMongo()");
+  pullFromMongo();
+}, function() {
+  console.log("[CRON] Done running pullFromMongo()");
+}, true);

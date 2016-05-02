@@ -17,6 +17,8 @@ function MongoPuller(data) {
 
   this.db = new mongo.Db(dbName, this.server, { w: 1 });
 
+  var self = this;
+
   this.pull = function pull(data, callback) {
     var collectionName = data.collection;
     var method = data.method;
@@ -69,7 +71,14 @@ function MongoPuller(data) {
   };
 
   this.close = function close(callback) {
-    this.server.close();
+    self.db.close(function(err, result) {
+      if (err) {
+        console.log("Error occurred while closing mongo connection: " + err);
+      }
+
+      console.log("Error is: " + err);
+      console.log("Close mongo result: " + result);
+    });
     return callback();
   };
 };
