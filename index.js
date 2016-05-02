@@ -170,12 +170,24 @@ new CronJob('1 * * * * *', function() {
   console.log("[CRON] Done running pullFromMongo()");
 }, true);
 
+process.on('SIGINT', function() {
+  exitGracefully();
+});
+
 process.on('SIGTERM', function() {
+  exitGracefully();
+});
+
+const exitGracefully = function exitGracefully() {
+  console.log("Exiting...");
+
   mongoPuller.close(function() {
     console.log("[INDEX] Closed Mongo connection");
-  });
 
-  esPusher.close(function() {
-    console.log("[INDEX] Closed ES connection");
+    esPusher.close(function() {
+      console.log("[INDEX] Closed ES connection");
+
+      process.exit();
+    });
   });
-});
+};
