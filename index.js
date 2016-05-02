@@ -151,24 +151,12 @@ var pullFromMongo = function pullFromMongo(data) {
 
     console.log("apiStatsData: ", apiStatsData);
 
-    mongoPuller.close(function() {
-      console.log("[INDEX] Ran mongo close");
-      //console.log("[MONGO CLOSE] Active handles: ", process._getActiveHandles());
-      //console.log("[MONGO CLOSE] Active requests: ", process._getActiveRequests());
-    });
-
     console.log("Sending apiStatsData to ES: ", apiStatsData);
 
     esPusher.push(apiStatsData, function(err) {
       if (err) {
         return console.log("Error writing API file data to ES: " + err);
       }
-
-      esPusher.close(function() {
-        console.log("[INDEX] Ran ES close");
-        //console.log("[ES CLOSE] Active handles: ", process._getActiveHandles());
-        //console.log("[ES CLOSE] Active requests: ", process._getActiveRequests());
-      });
 
       console.log("Wrote File data to ES");
     });
@@ -181,3 +169,13 @@ new CronJob('1 * * * * *', function() {
 }, function() {
   console.log("[CRON] Done running pullFromMongo()");
 }, true);
+
+process.on('SIGTERM', function() {
+  mongoPuller.close(function() {
+    console.log("[INDEX] Closed Mongo connection");
+  });
+
+  esPusher.close(function() {
+    console.log("[INDEX] Closed ES connection");
+  });
+});
