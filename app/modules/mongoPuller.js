@@ -8,8 +8,6 @@ function MongoPuller(data) {
   var user = data.user;
   var pass = data.pass;
 
-  console.log("MongoDB Connecting with: ", data);
-
   this.server = new mongo.Server(host, port, {
     ssl: ssl,
     sslValidate: sslValidate
