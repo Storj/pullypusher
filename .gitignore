@@ -1,0 +1,5 @@
+config/production*
+config/staging*
+config/dev*
+coverage/
+node_modules/
