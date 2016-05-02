@@ -41,6 +41,7 @@ function EsPusher(data) {
 
     data.tags = [ 'pullypusher' ];
     data.timestamp = new Date();
+    data["@timestamp"] =  new Date();
 
     this.client.create({
       index: this.index,
