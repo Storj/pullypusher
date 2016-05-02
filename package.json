@@ -4,6 +4,8 @@
   "description": "Pull stats from one place and push to another",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "start-prod": "NODE_ENV=production node index.js",
     "test": "NODE_ENV=test instanbul cover _mocha -- --recursive test/",
     "lint": "eslint ."
   },
