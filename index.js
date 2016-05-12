@@ -130,7 +130,8 @@ var pullFromMongo = function pullFromMongo(data) {
       mongoPuller.pull({
         collection: 'files',
         method: 'aggregate',
-        query: [{ $group: { _id: null, total: { $sum: "$size" }}}]
+        query: [{ $unwind: "$shards" }, { $group: { _id: null, total: { $sum: "$shards.size" }}}]
+
       }, function(err, result) {
         if (err) {
           console.log("Error while pulling aggregations: " + err);
