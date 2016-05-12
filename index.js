@@ -164,7 +164,7 @@ var pullFromMongo = function pullFromMongo(data) {
   }
 }
 
-new CronJob('*/2 * * * *', function() {
+new CronJob('*/10 * * * *', function() {
   console.log("[CRON] Running pullFromMongo()");
   pullFromMongo();
 }, function() {

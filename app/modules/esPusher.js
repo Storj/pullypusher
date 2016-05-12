@@ -43,8 +43,11 @@ function EsPusher(data) {
     data.timestamp = new Date();
     data["@timestamp"] =  new Date();
 
+    var currentDate = new Date();
+    var indexDate = currentDate.getFullYear() + '.' + ("0" + (currentDate.getMonth() + 1)).slice(-2) + '.' + ("0" + currentDate.getDate()).slice(-2);
+
     this.client.create({
-      index: this.index,
+      index: this.index + "-" + indexDate,
       type: this.type,
       body: data
     }, function(err, response) {
