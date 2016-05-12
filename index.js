@@ -128,7 +128,7 @@ var pullFromMongo = function pullFromMongo(data) {
     },
     function(callback) {
       mongoPuller.pull({
-        collection: 'files',
+        collection: 'frames',
         method: 'aggregate',
         query: [{ $unwind: "$shards" }, { $group: { _id: null, total: { $sum: "$shards.size" }}}]
 
@@ -164,7 +164,7 @@ var pullFromMongo = function pullFromMongo(data) {
   }
 }
 
-new CronJob('*/10 * * * *', function() {
+new CronJob('*/2 * * * *', function() {
   console.log("[CRON] Running pullFromMongo()");
   pullFromMongo();
 }, function() {
