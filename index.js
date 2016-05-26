@@ -83,6 +83,16 @@ var pullFromMongo = function pullFromMongo(data) {
     },
     function(callback) {
       mongoPuller.pull({
+        collection: 'frames',
+        method: 'count'
+      }, function(err, count) {
+        console.log("frames: " + count);
+        apiStatsData.framesCount = count;
+        callback(err, 'frames');
+      });
+    },
+    function(callback) {
+      mongoPuller.pull({
         collection: 'users',
         method: 'count'
       }, function(err, count) {
@@ -164,7 +174,7 @@ var pullFromMongo = function pullFromMongo(data) {
   }
 }
 
-new CronJob('*/10 * * * *', function() {
+new CronJob('*/2 * * * *', function() {
   console.log("[CRON] Running pullFromMongo()");
   pullFromMongo();
 }, function() {
