@@ -93,6 +93,16 @@ var pullFromMongo = function pullFromMongo(data) {
     },
     function(callback) {
       mongoPuller.pull({
+        collection: 'bucketentries',
+        method: 'count'
+      }, function(err, count) {
+        console.log("bucketentries: " + count);
+        apiStatsData.bucketentriesCount = count;
+        callback(err, 'bucketentries');
+      });
+    },
+    function(callback) {
+      mongoPuller.pull({
         collection: 'users',
         method: 'count'
       }, function(err, count) {
