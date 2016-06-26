@@ -31,6 +31,9 @@ function MongoPuller(data) {
       if (err) throw err;
       console.log("MongoDB Connection opened");
 
+      console.log('Collection Name %s', collectionName);
+      console.log('Host: %s DB: %s', host, dbName);
+
       var collection = db.collection(collectionName);
 
       if (method == 'count') {
@@ -55,16 +58,21 @@ function MongoPuller(data) {
         }
       }
 
+      if (method == 'getAllFromCollection') {
+        collection.find(function(err, cursor) {
+          console.log("[MONGODB] Find query done...");
+
+          return callback(err, cursor);
+        });
+      }
+
       if (method == 'aggregate') {
         collection.aggregate(query).toArray(function(err, result) {
-          if (err) {
-            return callback(err, null);
-          }
-
           console.log("[MONGODB] Aggregate done...");
-          return callback(null, result);
+
+          return callback(err, result);
         });
-      };
+      }
     });
   };
 
@@ -79,6 +87,6 @@ function MongoPuller(data) {
     });
     return callback();
   };
-};
+}
 
 module.exports = MongoPuller;

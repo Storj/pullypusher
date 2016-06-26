@@ -1,6 +1,7 @@
 config/production*
 config/staging*
 config/dev*
+config/dataapi*
 coverage/
 node_modules/
 *.log
