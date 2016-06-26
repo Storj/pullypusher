@@ -29,10 +29,10 @@ function MongoPuller(data) {
 
     this.db.open(function(err, db) {
       if (err) throw err;
-      console.log("MongoDB Connection opened");
+      //console.log("MongoDB Connection opened");
 
-      console.log('Collection Name %s', collectionName);
-      console.log('Host: %s DB: %s', host, dbName);
+      //console.log('Collection Name %s', collectionName);
+      //console.log('Host: %s DB: %s', host, dbName);
 
       var collection = db.collection(collectionName);
 
@@ -58,9 +58,19 @@ function MongoPuller(data) {
         }
       }
 
-      if (method == 'getAllFromCollection') {
-        collection.find(function(err, cursor) {
+      if (method == 'find') {
+        collection.find(query, function(err, resultArray) {
           console.log("[MONGODB] Find query done...");
+          console.log("[MONGODB] resultArray.length: ", resultArray.length);
+
+          return callback(err, resultArray);
+        });
+      }
+
+      if (method == 'getCursor') {
+        collection.find({}, function(err, cursor) {
+          console.log("[MONGODB] Find query done...");
+          console.log("[MONGODB] resultArray.length: ", resultArray.length);
 
           return callback(err, cursor);
         });

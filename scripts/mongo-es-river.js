@@ -10,6 +10,10 @@ function River() {
   var self = this;
   var cursor;
   var queue;
+  var lastDocDate;
+  var batchSize = 20;
+  var count = 0;
+  var finished = false;
 
   var EsPusher = require('../app/modules/esPusher');
   this.esPusher = new EsPusher({
@@ -34,84 +38,63 @@ function River() {
     pass: config.mongodb.PASS
   });
 
-  this.mongoConfig = {
-    collection: 'reports',
-    method: 'getAllFromCollection'
-  };
-
-  self.batchSize = 3;
-  self.count = 0;
 
   this.run = function run() {
     console.log("Starting Mongo to ES River");
 
-    this.getMongoCursor(this.mongoConfig, function(cursor) {
-      self.cursor = cursor;
-      console.log('Got mongo cursor');
-      console.log('Starting queue function');
+    self.cursor = cursor;
+    console.log('Got mongo cursor');
+    console.log('Starting queue function');
 
-      self.queue = async.queue(self.processNextItem, 10);
+    self.queue = async.queue(self.processNextItem, 10);
 
-      console.log('Cursor is closed -%s-', self.cursor.isClosed());
+    self.queue.drain = function() {
+      process.stdout.write('X');
+      self.count = 0;
+    };
 
-      self.queue.drain = function() {
-        console.log('Queue is drained');
-        process.stdout.write('X');
-        console.log('Filling queue again...');
-        this.fillQueue(self.cursor, self.queue);
-      };
+    console.log('Filling queue for the first time...');
 
-      console.log('Filling queue for the first time...');
-
-      async.until(function() {
-        return self.cursor.isClosed();
-      }, function(cb) {
-        var cb = cb;
-        process.nextTick(function() {
-          self.fillQueue(function() {
-            cb();
+    async.until(function() {
+      // Until mongo stops returning documents
+      return finished;
+    }, function(cb) {
+      process.nextTick(function() {
+        self.getNextBatch(function(batchArray) {
+          self.fillQueue(batchArray, function() {
+            return cb();
           });
         });
-      }, function(err){
-        console.log('until is done');
       });
+    }, function(err){
     });
   };
 
-  this.fillQueue = function fillQueue(callback) {
-    if (self.count < self.batchSize) {
-      console.log('Count ', self.count);
-
-      self.pushNext(function() {
-        self.count++;
-       return callback();
+  this.fillQueue = function fillQueue(batchArray, callback) {
+    async.until(function() {
+      return (self.count === self.batchSize);
+    }, function(cb) {
+      async.each(batchArray, function(item) {
+        self.pushItem(function(item) {
+          self.count++;
+          console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
+          cb();
+        });
       });
-    } else {
-      return callback();
-    }
-  };
-
-  this.pushNext = function pushNext(callback) {
-    console.log('Getting next item from cursor');
-
-    self.cursor.nextObject(function(err, item) {
-      console.log('Pushing next item...');
-
-      if (err) {
-        console.log('Error getting next object: %s', err);
-      }
-
-      self.queue.push(item);
-      process.stdout.write('+');
+    }, function(err) {
       callback();
     });
   };
 
-  this.processNextItem = function processNextItem(myItem, cb) {
-    console.log('Processing next item...');
+  this.pushItem = function pushItem(item, callback) {
+    self.queue.push(item, function() {
+      callback();
+    });
+    process.stdout.write('+');
+  };
 
+  this.processNextItem = function processNextItem(myItem, cb) {
     self.processItem(myItem, function(processedItem) {
-      console.log('Got processed item returned...');
       self.esPusher.push(processedItem, function(err, response) {
         if (err) {
           return cb(err);
@@ -123,25 +106,46 @@ function River() {
     });
   };
 
-  this.getMongoCursor = function getMongoCursor(config, callback) {
+  this.getNextBatch = function getNextBatch(callback) {
+    // Query: If no lastDocDate, sort the docs and start at the beginning and limit to 100
+    var query;
+
+    /*
+    if (!lastDocDate) {
+      query = [ [{}], [{ "sort": "timestamp", "limit": 100 } ];
+    } else {
+      query = [ { 'timestamp': { $gt: lastDocDate } }, { "sort": "timestamp", "limit": 100 } ];
+    }
+    */
+
+    // Query If lastDocDate, find all documents newer than that and limit to 100
+    this.config = {
+      collection: 'reports',
+      method: 'getCursor',
+    };
+
     console.log('Trying to get cursor from mongoPuller');
 
-    this.mongoPuller.pull(config, function(err, cursor) {
-      console.log('Got cursor from mongoPuller');
-
-      cursor.count(function(err, count) {
-        console.log('Cursor.count: ', count);
-      });
-
+    this.mongoPuller.pull(this.config, function(err, cursor) {
+      console.log('Got result array length: ', resultArray.length);
       if (err) {
         return console.log('Got error while iterating cursor: ', err);
       }
 
-      return callback(cursor);
+      cursor.sort({'timestamp': 1});
 
+      if (resultArray.length > 0) {
+        // Set lastDocDate from last doc in array
+
+        return callback(resultArray);
+      } else {
+        self.finished = true;
+        return callback(null);
+      }
     });
   };
 
+  /*
   this.getNextMongoItem = function getNextMongoItem(cursor, callback) {
     console.log('Getting next mongo item from cursor');
     cursor.nextObject(function(err, item) {
@@ -156,6 +160,7 @@ function River() {
       return callback(item);
     });
   };
+  */
 
   this.processItem = function processItem(item, callback) {
     var processedItem = item;
