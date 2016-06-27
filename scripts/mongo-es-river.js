@@ -9,11 +9,11 @@ const async = require('async');
 function River() {
   var self = this;
   var cursor;
-  var queue;
   var lastDocDate;
-  var batchSize = 20;
-  var count = 0;
-  var finished = false;
+  self.queue;
+  self.batchSize = 20;
+  self.count = 0;
+  self.finished = false;
 
   var EsPusher = require('../app/modules/esPusher');
   this.esPusher = new EsPusher({
@@ -38,62 +38,117 @@ function River() {
     pass: config.mongodb.PASS
   });
 
+  this.initQueue = function initQueue(callback) {
+    var queue = async.queue(self.processNextItem, 10);
+    self.queue = this.queue;
+
+    queue.drain = function() {
+      process.stdout.write('X');
+      self.count = 0;
+      self.finished = false;
+      self.getCursor(function(cursor) {
+        self.cursor = cursor;
+        self.fillQueue(function(err) {
+          if (err) {
+            console.log('ERROR Refilling queue: ', err);
+            return callback(null);
+          }
+
+          // Why is queue here empty???
+          //console.log('Queue: ', self.queue);
+
+          console.log('Refilled queue');
+        });
+      });
+    };
+
+    return callback(queue);
+  };
 
   this.run = function run() {
     console.log("Starting Mongo to ES River");
-
-    self.cursor = cursor;
     console.log('Got mongo cursor');
     console.log('Starting queue function');
-
-    self.queue = async.queue(self.processNextItem, 10);
-
-    self.queue.drain = function() {
-      process.stdout.write('X');
-      self.count = 0;
-    };
-
     console.log('Filling queue for the first time...');
 
-    async.until(function() {
-      // Until mongo stops returning documents
-      return finished;
-    }, function(cb) {
-      process.nextTick(function() {
-        self.getNextBatch(function(batchArray) {
-          self.fillQueue(batchArray, function() {
-            return cb();
-          });
+    self.getCursor(function(cursor) {
+      self.cursor = cursor;
+
+      self.initQueue(function(queue) {
+        self.queue = queue;
+
+        console.log('Got cursor');
+
+        self.finished = false;
+
+        self.fillQueue(function(err) {
+          if (err) {
+            console.log('Error filling queue: %s', err);
+          }
+
+          console.log('Filled queue for the first time');
         });
       });
-    }, function(err){
     });
   };
 
-  this.fillQueue = function fillQueue(batchArray, callback) {
+  this.fillQueue = function fillQueue(callback) {
+    console.log('Running async to fill queue');
     async.until(function() {
-      return (self.count === self.batchSize);
+      console.log('self.finished is ', self.finished);
+
+      return self.finished;
     }, function(cb) {
-      async.each(batchArray, function(item) {
-        self.pushItem(function(item) {
-          self.count++;
-          console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
-          cb();
-        });
+      console.log('before next tick');
+
+      process.nextTick(function() {
+        console.log('Checking if cursor is closed: ', self.cursor.isClosed(), ' self.finished(): ', self.finished);
+        if (!self.cursor.isClosed()) {
+          console.log('Filling queue');
+          self.cursor.sort({ timestamp: 1 });
+          self.cursor.limit(self.batchSize);
+
+          self.cursor.each(function(err, item) {
+            //console.log('Item: %s', JSON.stringify(item));
+
+            if (err) {
+              console.log('ERROR looping: %s', err);
+              return cb(err);
+            }
+
+            if (item === null) {
+              console.log('Setting finished to true');
+              self.finished = true;
+              return cb();
+            }
+
+            self.pushItem(item, function() {
+              //console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
+              self.count++;
+            });
+          });
+        }
       });
     }, function(err) {
-      callback();
+      console.log('Finished');
+      callback(err);
     });
   };
 
   this.pushItem = function pushItem(item, callback) {
+    //console.log('item: ', item);
+
     self.queue.push(item, function() {
       callback();
     });
+
     process.stdout.write('+');
   };
 
   this.processNextItem = function processNextItem(myItem, cb) {
+    //console.log('ITEM: ', JSON.stringify(myItem));
+    console.log('Item Date: %s', myItem.timestamp);
+
     self.processItem(myItem, function(processedItem) {
       self.esPusher.push(processedItem, function(err, response) {
         if (err) {
@@ -106,19 +161,7 @@ function River() {
     });
   };
 
-  this.getNextBatch = function getNextBatch(callback) {
-    // Query: If no lastDocDate, sort the docs and start at the beginning and limit to 100
-    var query;
-
-    /*
-    if (!lastDocDate) {
-      query = [ [{}], [{ "sort": "timestamp", "limit": 100 } ];
-    } else {
-      query = [ { 'timestamp': { $gt: lastDocDate } }, { "sort": "timestamp", "limit": 100 } ];
-    }
-    */
-
-    // Query If lastDocDate, find all documents newer than that and limit to 100
+  this.getCursor = function getCursor(callback) {
     this.config = {
       collection: 'reports',
       method: 'getCursor',
@@ -127,45 +170,20 @@ function River() {
     console.log('Trying to get cursor from mongoPuller');
 
     this.mongoPuller.pull(this.config, function(err, cursor) {
-      console.log('Got result array length: ', resultArray.length);
       if (err) {
         return console.log('Got error while iterating cursor: ', err);
       }
 
-      cursor.sort({'timestamp': 1});
-
-      if (resultArray.length > 0) {
-        // Set lastDocDate from last doc in array
-
-        return callback(resultArray);
-      } else {
-        self.finished = true;
-        return callback(null);
-      }
+      return callback(cursor);
     });
   };
-
-  /*
-  this.getNextMongoItem = function getNextMongoItem(cursor, callback) {
-    console.log('Getting next mongo item from cursor');
-    cursor.nextObject(function(err, item) {
-      if (err) {
-        return console.log('Error pulling from MongoDB: %s', err);
-      }
-
-      if (!item) {
-        return console.log('No item found...');
-      }
-
-      return callback(item);
-    });
-  };
-  */
 
   this.processItem = function processItem(item, callback) {
     var processedItem = item;
-    if (processedItem._id) {
+    if (processedItem && processedItem._id) {
       delete processedItem._id;
+    } else {
+      console.log('No item to process');
     }
 
     return callback(processedItem);
@@ -174,4 +192,3 @@ function River() {
 
 var river = new River();
 river.run();
-

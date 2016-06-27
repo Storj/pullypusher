@@ -70,7 +70,6 @@ function MongoPuller(data) {
       if (method == 'getCursor') {
         collection.find({}, function(err, cursor) {
           console.log("[MONGODB] Find query done...");
-          console.log("[MONGODB] resultArray.length: ", resultArray.length);
 
           return callback(err, cursor);
         });
