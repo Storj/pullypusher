@@ -42,7 +42,7 @@ function EsPusher(data) {
 
   this.push = function push(data, callback) {
     var data = data;
-    //console.log("Data: ", data);
+    //console.log("[ESPUSHER] - Data: ", data);
 
   //console.log('ES pusher config: host: %s, port %s, ssl: %s, user: %s pass: %s, index: %s, type: %s, date: %s', this.host, this.port, this.ssl, this.user, this.pass, this.index, this.type, this.date);
 
