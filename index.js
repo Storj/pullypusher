@@ -22,6 +22,7 @@ var esPusher = new EsPusher({
   pass: config.elasticsearch.PASS
 });
 var MongoPuller = require('./app/modules/mongoPuller');
+
 var mongoPuller = new MongoPuller({
   host: config.mongodb.HOST,
   dbName: config.mongodb.DB_NAME,
