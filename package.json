@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "start-prod": "NODE_ENV=production node index.js",
+    "start-dataapi": "NODE_ENV=dataapi node data-api.js",
     "test": "NODE_ENV=test instanbul cover _mocha -- --recursive test/",
     "lint": "eslint ."
   },
