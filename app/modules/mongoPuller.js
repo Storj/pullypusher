@@ -21,15 +21,19 @@ function MongoPuller(data) {
     var collectionName = data.collection;
     var method = data.method;
     var query = data.query;
+    var startDate = data.startDate;
 
-    console.log("Pulling MongoDB data from collection " + collectionName);
+    //console.log("Pulling MongoDB data from collection " + collectionName);
 
     // Pull this from config (which should be from ENV)
     var auth = { user: user, pass: pass };
 
     this.db.open(function(err, db) {
       if (err) throw err;
-      console.log("MongoDB Connection opened");
+      //console.log("MongoDB Connection opened");
+
+      //console.log('Collection Name %s', collectionName);
+      //console.log('Host: %s DB: %s', host, dbName);
 
       var collection = db.collection(collectionName);
 
@@ -55,16 +59,40 @@ function MongoPuller(data) {
         }
       }
 
+      if (method == 'find') {
+        collection.find(query, function(err, resultArray) {
+          console.log("[MONGODB] Find query done...");
+          console.log("[MONGODB] resultArray.length: ", resultArray.length);
+
+          return callback(err, resultArray);
+        });
+      }
+
+      if (method == 'getCursor') {
+        var cursorQuery = {};
+
+        if (startDate) {
+          console.log('Finding with start date');
+          // Should be passing this in by var...
+          cursorQuery = { 'created': { $gt: startDate } };
+        } else {
+          console.log('Finding without start date');
+        }
+
+        collection.find(cursorQuery, function(err, cursor) {
+          //console.log("[MONGODB] Find query done...");
+
+          return callback(err, cursor);
+        });
+      }
+
       if (method == 'aggregate') {
         collection.aggregate(query).toArray(function(err, result) {
-          if (err) {
-            return callback(err, null);
-          }
-
           console.log("[MONGODB] Aggregate done...");
-          return callback(null, result);
+
+          return callback(err, result);
         });
-      };
+      }
     });
   };
 
@@ -79,6 +107,6 @@ function MongoPuller(data) {
     });
     return callback();
   };
-};
+}
 
 module.exports = MongoPuller;
