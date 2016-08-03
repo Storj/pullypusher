@@ -97,6 +97,16 @@ var pullFromMongo = function pullFromMongo(data) {
   function finish(statusReportData) {
     console.log("Running FINISH");
 
+    console.log('Done with Mongo, trying to close connection...');
+
+    mongoPuller.close(function(err) {
+      if (err) {
+        console.log('Error closing mongo connection: %s', err);
+      }
+
+      console.log('Closed mongo connection');
+    });
+
     statusReportData.totalStorage = ( statusReportData.storageFree + statusReportData.storageUsed );
 
     console.log("Sending statusReportData to ES: ", statusReportData);

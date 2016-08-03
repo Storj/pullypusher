@@ -23,7 +23,7 @@ var esPusher = new EsPusher({
 });
 var MongoPuller = require('./app/modules/mongoPuller');
 
-var mongoPuller = new MongoPuller({
+var mongoPullerConfig = {
   host: config.mongodb.HOST,
   dbName: config.mongodb.DB_NAME,
   port: config.mongodb.PORT,
@@ -31,7 +31,8 @@ var mongoPuller = new MongoPuller({
   sslValidate: config.mongodb.SSL_VALIDATE,
   user: config.mongodb.USER,
   pass: config.mongodb.PASS
-});
+};
+
 
 
 /*
@@ -57,6 +58,8 @@ var totalFarmerData = function totalFarmerData() {
 
 var pullFromMongo = function pullFromMongo(data) {
   console.log("Pulling data from MongoDB");
+
+  var mongoPuller = new MongoPuller(mongoPullerConfig);
 
   var apiStatsData = {};
   var apiFileData = {};
@@ -170,6 +173,16 @@ var pullFromMongo = function pullFromMongo(data) {
 
   function finish(apiStatsData) {
     console.log("Running FINISH");
+
+    console.log('Done with Mongo, trying to close connection...');
+
+    mongoPuller.close(function(err) {
+      if (err) {
+        console.log('Error closing mongo connection: %s', err);
+      }
+
+      console.log('Closed mongo connection');
+    });
 
     console.log("apiStatsData: ", apiStatsData);
 
