@@ -33,14 +33,15 @@ var mongoPullerConfig = {
   pass: config.mongodb.PASS
 };
 
-
-
 /*
+ * Leaving here for example
 httpRequest({ host: 'status.driveshare.org', path: '/api/total'}, function(err, response) {
   console.log("httpRequest callback: ", response);
 });
 */
 
+/*
+ * Leaving here for example
 var totalFarmerData = function totalFarmerData() {
   httpRequest({
     host: config.http.HOST,
@@ -55,6 +56,7 @@ var totalFarmerData = function totalFarmerData() {
     });
   });
 };
+*/
 
 var pullFromMongo = function pullFromMongo(data) {
   console.log("Pulling data from MongoDB");

@@ -15,6 +15,14 @@ function MongoPuller(data) {
 
   this.db = new mongo.Db(dbName, this.server, { w: 1 });
 
+  this.open = function open(callback) {
+    this.db.open(function(err, db) {
+      if (err) throw err;
+      // Do we need to assign db here to a local var? or is it the same one??
+      callback(err);
+    });
+  };
+
   var self = this;
 
   this.pull = function pull(data, callback) {
@@ -28,72 +36,89 @@ function MongoPuller(data) {
     // Pull this from config (which should be from ENV)
     var auth = { user: user, pass: pass };
 
-    this.db.open(function(err, db) {
-      if (err) throw err;
+
       //console.log("MongoDB Connection opened");
 
       //console.log('Collection Name %s', collectionName);
       //console.log('Host: %s DB: %s', host, dbName);
 
-      var collection = db.collection(collectionName);
+    var collection = this.db.collection(collectionName);
 
-      if (method == 'count') {
-        if (query) {
-          collection.count(query, function(err, count) {
-            if (err) {
-              return callback(err, null);
-            }
+    //console.log('Created collection for %s in database %s', collectionName, dbName);
 
-            console.log("[MONGODB] Count with query done...");
-            return callback(null, count);
-          });
-        } else {
-          collection.count(function(err, count) {
-            if (err) {
-              return callback(err, null);
-            }
+    if (method == 'count') {
+      if (query) {
+        collection.count(query, function(err, count) {
+          if (err) {
+            return callback(err, null);
+          }
 
-            console.log("[MONGODB] Count done...");
-            return callback(null, count);
-          });
-        }
-      }
+          console.log("[MONGODB] Count with query done...");
+          return callback(null, count);
+        });
+      } else {
+        collection.count(function(err, count) {
+          if (err) {
+            return callback(err, null);
+          }
 
-      if (method == 'find') {
-        collection.find(query, function(err, resultArray) {
-          console.log("[MONGODB] Find query done...");
-          console.log("[MONGODB] resultArray.length: ", resultArray.length);
-
-          return callback(err, resultArray);
+          console.log("[MONGODB] Count done...");
+          return callback(null, count);
         });
       }
+    }
 
-      if (method == 'getCursor') {
-        var cursorQuery = {};
-
-        if (startDate) {
-          console.log('Finding with start date');
-          // Should be passing this in by var...
-          cursorQuery = { 'created': { $gt: startDate } };
-        } else {
-          console.log('Finding without start date');
+    if (method == 'find') {
+      collection.find(query, function(err, resultCursor) {
+      //collection.find({}, function(err, resultCursor) {
+        if (err) {
+          console.log('Error running FIND: %s', err);
         }
 
-        collection.find(cursorQuery, function(err, cursor) {
-          //console.log("[MONGODB] Find query done...");
+        //console.log("[MONGODB] Find query done...");
 
-          return callback(err, cursor);
-        });
+        return callback(err, resultCursor);
+      });
+    }
+
+    if (method == 'findOne') {
+      collection.findOne(query, function(err, result) {
+      //collection.find({}, function(err, resultCursor) {
+        if (err) {
+          console.log('Error running FIND: %s', err);
+        }
+
+        //console.log("[MONGODB] Find query done...");
+
+        return callback(err, result);
+      });
+    }
+
+    if (method == 'getCursor') {
+      var cursorQuery = {};
+
+      if (startDate) {
+        console.log('Finding with start date');
+        // Should be passing this in by var...
+        cursorQuery = { 'created': { $gt: startDate } };
+      } else {
+        console.log('Finding without start date');
       }
 
-      if (method == 'aggregate') {
-        collection.aggregate(query).toArray(function(err, result) {
-          console.log("[MONGODB] Aggregate done...");
+      collection.find(cursorQuery, function(err, cursor) {
+        //console.log("[MONGODB] Find query done...");
 
-          return callback(err, result);
-        });
-      }
-    });
+        return callback(err, cursor);
+      });
+    }
+
+    if (method == 'aggregate') {
+      collection.aggregate(query).toArray(function(err, result) {
+        console.log("[MONGODB] Aggregate done...");
+
+        return callback(err, result);
+      });
+    }
   };
 
   this.close = function close(callback) {
