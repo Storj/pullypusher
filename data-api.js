@@ -64,7 +64,6 @@ var pullFromMongo = function pullFromMongo(data) {
         if (err) {
           console.log("Error while pulling aggregations: " + err);
         }
-        console.log("raw aggregation: ", result);
         statusReportData.storageUsed = result[0].total_storage_used;
         console.log("Aggregation (storage used): ", result[0].total_storage_used);
         callback(err, 'aggregate');
@@ -84,7 +83,6 @@ var pullFromMongo = function pullFromMongo(data) {
         if (err) {
           console.log("Error while pulling aggregations: " + err);
         }
-        console.log("raw aggregation: ", result);
         statusReportData.storageFree = result[0].total_storage_free;
         console.log("Aggregation (storage free): ", result[0].total_storage_free);
         callback(err, 'aggregate');
@@ -98,6 +96,16 @@ var pullFromMongo = function pullFromMongo(data) {
 
   function finish(statusReportData) {
     console.log("Running FINISH");
+
+    console.log('Done with Mongo, trying to close connection...');
+
+    mongoPuller.close(function(err) {
+      if (err) {
+        console.log('Error closing mongo connection: %s', err);
+      }
+
+      console.log('Closed mongo connection');
+    });
 
     statusReportData.totalStorage = ( statusReportData.storageFree + statusReportData.storageUsed );
 
