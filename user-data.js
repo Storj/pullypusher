@@ -206,7 +206,7 @@ var pullFromMongo = function pullFromMongo(data) {
       // - Grabbing the size and saving to the bridgeUsers object
 
       Object.keys(bridgeUsers).forEach(function(userID) {
-        bridgeUsers[userID].totalDataTransferred = 0;
+        bridgeUsers[userID].totalDataDownloaded = 0;
         bridgeUsers[userID].pointerMap = [];
         userCounter++;
 
@@ -293,12 +293,10 @@ var pullFromMongo = function pullFromMongo(data) {
           }, function(err, shard) {
             shardCounter++;
 
-            // Is the pointer.size the same as the shard.contract.size?
-            console.log('pointer size: %s shard size: %s', pointer.size, shard.contracts[0].contract.data_size);
-
             totalContractCount += shard.contracts.length;
             var contractMap = {};
             var totalDataDownloaded = 0;
+            var totalDownloadCount = 0;
 
             // Add each of the contracts to a contractMap (key: id)
             shard.contracts.forEach(function(contract) {
@@ -308,11 +306,23 @@ var pullFromMongo = function pullFromMongo(data) {
 
             // Get the download count for each shard
             shard.meta.forEach(function(metaItem) {
-              var shardContractDownloaded = ( metaItem.meta.downloadCount * contractMap[metaItem.nodeID].data_size * shard.contracts.length);
+              var shardDownloadCount = metaItem.meta.downloadCount;
+              var shardDataSize = contractMap[metaItem.nodeID].data_size;
+              var shardContractCount = shard.contracts.length;
+
+              var shardContractDownloaded = ( shardDownloadCount * shardDataSize * shardContractCount );
+
               totalDataDownloaded += shardContractDownloaded;
+              totalDownloadCount += shardDownloadCount;
             });
 
-            console.log('shard %s totalDataDownloaded is %s', shard._id, totalDataDownloaded);
+            bridgeUsers[userID].totalDownloadCount = totalDownloadCount;
+            bridgeUsers[userID].totalDataDownloaded = totalDataDownloaded;
+
+            if (totalDataDownloaded > 0) {
+              console.log('shard %s totalDataDownloaded is %s', shard._id, totalDataDownloaded);
+            }
+
             console.log('Users: [ %s / %s ]  Shards: [ %s / %s ]  Contracts: [ %s / %s ]', userCounter, totalUserCount, shardCounter, totalShardCount, contractCounter, totalContractCount);
 
             if ((userCounter === totalUserCount) && (shardCounter === totalShardCount) && (contractCounter === totalContractCount)) {
@@ -347,7 +357,7 @@ var pullFromMongo = function pullFromMongo(data) {
       if (!err) {
         console.log('User data file written to %s', userDataFilePath);
       }
-    })
+    });
 
     console.log('Done with Mongo, trying to close connection...');
 
