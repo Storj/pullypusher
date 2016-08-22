@@ -126,9 +126,6 @@ function MongoPuller(data) {
       if (err) {
         console.log("Error occurred while closing mongo connection: " + err);
       }
-
-      console.log("Error is: " + err);
-      console.log("Close mongo result: " + result);
     });
     return callback();
   };

@@ -117,7 +117,6 @@ var pullFromMongo = function pullFromMongo(data) {
         // and transfer used for each
 
         bridgeUsers[userID].pointers = [];
-        bridgeUsers[userID].totalDataStored = 0;
         userCounter++;
 
         console.log('[USERS][ %s of %s ] Processing storage used for %s', userCounter, totalUserCount, userID);
@@ -162,7 +161,7 @@ var pullFromMongo = function pullFromMongo(data) {
               var pointers = frame.shards;
 
               frameCounter++;
-              bridgeUsers[userID].totalDataStored += frame.size;
+              //bridgeUsers[userID].totalDataStored += frame.size;
               totalPointerCount += frame.shards.length;
 
               //console.log('Processing %s shards from frame %s', frame.shards.length, JSON.stringify(frame));
@@ -238,7 +237,6 @@ var pullFromMongo = function pullFromMongo(data) {
               return console.log('Shard %s for user %s not found', pointerId, userID);
             }
 
-            // This only gets called once/?!?!?!?
             console.log('Found shard %s for user %s', pointerId, userID);
 
             // Collect sizes and hash for each pointer
@@ -246,8 +244,6 @@ var pullFromMongo = function pullFromMongo(data) {
               size: pointer.size,
               hash: pointer.hash
             };
-
-            console.log('pointerCounter: %s  totalPointerCount: %s', pointerCounter, totalPointerCount);
 
             if (( pointerCounter === totalPointerCount ) && ( userCounter === totalUserCount )) {
               console.log('Done processing all pointers. Calling callback.');
@@ -279,6 +275,8 @@ var pullFromMongo = function pullFromMongo(data) {
       console.log('Starting find shards and calculate data...');
 
       Object.keys(bridgeUsers).forEach(function(userID) {
+        bridgeUsers[userID].totalDataStored = 0;
+        bridgeUsers[userID].totalDownloadCount = 0;
         userCounter++;
 
         Object.keys(bridgeUsers[userID].pointerMap).forEach(function(pointerId) {
@@ -310,20 +308,25 @@ var pullFromMongo = function pullFromMongo(data) {
               var shardDataSize = contractMap[metaItem.nodeID].data_size;
               var shardContractCount = shard.contracts.length;
 
-              var shardContractDownloaded = ( shardDownloadCount * shardDataSize * shardContractCount );
+              var shardContractDownloaded = ( shardDownloadCount * shardDataSize );
+              bridgeUsers[userID].totalDataStored += ( shardDataSize * shardContractCount );
+
 
               totalDataDownloaded += shardContractDownloaded;
               totalDownloadCount += shardDownloadCount;
             });
 
-            bridgeUsers[userID].totalDownloadCount = totalDownloadCount;
-            bridgeUsers[userID].totalDataDownloaded = totalDataDownloaded;
+            bridgeUsers[userID].totalDataDownloaded += totalDataDownloaded;
 
             if (totalDataDownloaded > 0) {
-              console.log('shard %s totalDataDownloaded is %s', shard._id, totalDataDownloaded);
+              //console.log('shard %s totalDataDownloaded is %s', shard._id, totalDataDownloaded);
             }
 
-            console.log('Users: [ %s / %s ]  Shards: [ %s / %s ]  Contracts: [ %s / %s ]', userCounter, totalUserCount, shardCounter, totalShardCount, contractCounter, totalContractCount);
+            if (totalDownloadCount > 0) {
+              bridgeUsers[userID].totalDownloadCount += totalDownloadCount;
+            }
+
+            //console.log('Users: [ %s / %s ]  Shards: [ %s / %s ]  Contracts: [ %s / %s ]', userCounter, totalUserCount, shardCounter, totalShardCount, contractCounter, totalContractCount);
 
             if ((userCounter === totalUserCount) && (shardCounter === totalShardCount) && (contractCounter === totalContractCount)) {
               console.log('Done processing download counts... Calling callback.');
