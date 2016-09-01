@@ -5,10 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start-prod": "NODE_ENV=production node index.js",
-    "start-dataapi": "NODE_ENV=dataapi node data-api.js",
-    "test": "NODE_ENV=test instanbul cover _mocha -- --recursive test/",
-    "lint": "eslint ."
+    "start-bridge-data": "NODE_ENV=production node scripts/bridge-data.js",
+    "start-data-api": "NODE_ENV=dataapi node scripts/data-api.js",
+    "run-user-data": "NODE_ENV=production node scripts/user-data.js",
+    "test": "npm run testsuite && npm run linter && npm run coverage",
+    "testsuite": "./node_modules/.bin/mocha test/** --recursive",
+    "coverage": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- --recursive",
+    "linter": "./node_modules/.bin/jshint --config .jshintrc ./scripts ./app ./test"
   },
   "repository": {
     "type": "git",
@@ -34,6 +37,8 @@
     "eslint": "^2.9.0",
     "eslint-config-defaults": "^9.0.0",
     "eslint-plugin-filenames": "^0.2.0",
+    "istanbul": "^0.4.5",
+    "jshint": "^2.9.3",
     "mocha": "^2.4.5",
     "supertest": "^1.2.0"
   }

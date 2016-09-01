@@ -8,3 +8,5 @@ node_modules/
 userDataFile.*
 *.log
 /*.csv
+/data-out/*.json
+/data-out/*.csv

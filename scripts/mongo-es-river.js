@@ -69,9 +69,6 @@ function River() {
 
   this.run = function run() {
     console.log("Starting Mongo to ES River");
-    console.log('Got mongo cursor');
-    console.log('Starting queue function');
-    console.log('Filling queue for the first time...');
 
     self.getCursor(function(cursor) {
       self.cursor = cursor;
@@ -83,6 +80,7 @@ function River() {
 
         self.finished = false;
 
+        console.log('Filling queue for the first time...');
         self.fillQueue(function(err) {
           if (err) {
             console.log('Error filling queue: %s', err);
@@ -96,19 +94,14 @@ function River() {
 
   this.fillQueue = function fillQueue(callback) {
     async.until(function() {
-      //console.log('self.finished is ', self.finished);
-
       return self.finished;
     }, function(cb) {
       process.nextTick(function() {
-        //console.log('Checking if cursor is closed: ', self.cursor.isClosed(), ' self.finished(): ', self.finished);
         if (!self.cursor.isClosed()) {
-          //console.log('Filling queue');
           self.cursor.sort({ timestamp: 1 });
           self.cursor.limit(self.batchSize);
 
           self.cursor.each(function(err, item) {
-            //console.log('Item: %s', JSON.stringify(item));
 
             if (err) {
               console.log('ERROR looping: %s', err);
@@ -116,7 +109,6 @@ function River() {
             }
 
             if (item === null) {
-              //console.log('Setting finished to true');
               self.finished = true;
               return cb();
             }
@@ -128,12 +120,8 @@ function River() {
             }
 
             self.pushItem(item, function() {
-              //console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
               console.log('Item Date: %s Count: %s BatchSize: %s', item.timestamp, self.count, self.batchSize);
 
-              // **************************
-              // Count should be +1 to detect last item for date!!!
-              // **************************
               self.count++;
             });
           });
@@ -179,12 +167,18 @@ function River() {
 
     console.log('Trying to get cursor from mongoPuller');
 
-    this.mongoPuller.pull(this.config, function(err, cursor) {
+    this.mongoPuller.open(function(err) {
       if (err) {
-        return console.log('Got error while iterating cursor: ', err);
+        return console.log('Error opening connection to MongoDB: %s', err);
       }
 
-      return callback(cursor);
+      this.mongoPuller.pull(this.config, function(err, cursor) {
+        if (err) {
+          return console.log('Got error while iterating cursor: ', err);
+        }
+
+        return callback(cursor);
+      });
     });
   };
 

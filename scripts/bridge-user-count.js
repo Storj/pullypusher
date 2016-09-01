@@ -7,45 +7,42 @@ const config = require('config');
 const async = require('async');
 
 function River() {
-  var self = this;
-  var cursor;
-  this.lastDocDate;
-  self.queue;
-  self.batchSize = 20;
-  //this.count = 0;
-  self.finished = false;
+  var MongoPuller = require('../app/modules/mongoPuller');
+  var EsPusher = require('../app/modules/esPusher');
+
   this.userCount = 0;
 
-  var EsPusher = require('../app/modules/esPusher');
+  this.batchSize = 20;
+  this.finished = false;
+
   this.esPusher = new EsPusher({
-    host: config.elasticsearch.HOST,
-    port: config.elasticsearch.PORT,
-    ssl: config.elasticsearch.SSL,
-    log: config.elasticsearch.LOG,
-    index: config.elasticsearch.INDEX,
-    type: config.elasticsearch.TYPE,
-    user: config.elasticsearch.USER,
-    pass: config.elasticsearch.PASS
+    host: config.elasticsearch.host,
+    port: config.elasticsearch.port,
+    ssl: config.elasticsearch.ssl,
+    log: config.elasticsearch.log,
+    index: config.elasticsearch.index,
+    type: config.elasticsearch.type,
+    user: config.elasticsearch.user,
+    pass: config.elasticsearch.pass
   });
 
-  var MongoPuller = require('../app/modules/mongoPuller');
   this.mongoPuller = new MongoPuller({
-    host: config.mongodb.HOST,
-    dbName: config.mongodb.DB_NAME,
-    port: config.mongodb.PORT,
-    ssl: config.mongodb.SSL,
-    sslValidate: config.mongodb.SSL_VALIDATE,
-    user: config.mongodb.USER,
-    pass: config.mongodb.PASS
+    host: config.mongodb.host,
+    dbName: config.mongodb.db_name,
+    port: config.mongodb.port,
+    ssl: config.mongodb.ssl,
+    sslValidate: config.mongodb.ssl_validate,
+    user: config.mongodb.user,
+    pass: config.mongodb.pass
   });
+}
 
-  this.initQueue = function initQueue(callback) {
+River.prototype.initQueue = function initQueue(callback) {
     var self = this;
     self.queue = async.queue(self.processNextItem, self.batchSize);
 
     self.queue.drain = function() {
       process.stdout.write('X');
-      //this.count = 0;
       self.finished = false;
       self.getCursor(function(cursor) {
         self.cursor = cursor;
@@ -61,11 +58,11 @@ function River() {
     };
 
     return callback(self.queue);
-  };
+};
 
-  this.run = function run() {
+River.prototype.run = function run() {
     var self = this;
-    console.log("Starting Mongo to ES River");
+    console.log('Starting Mongo to ES River');
     console.log('Filling queue for the first time...');
 
     self.getCursor(function(cursor) {
@@ -87,22 +84,23 @@ function River() {
         });
       });
     });
-  };
+};
 
-  this.fillQueue = function fillQueue(queue, callback) {
+River.prototype.fillQueue = function fillQueue(queue, callback) {
     var self = this;
     self.queue = queue;
 
     async.until(function() {
       // Iterate through each user¬
-      // Create a counter for time period (day) (this should be an object with months, days and counters)¬
+      // Create a counter for time period (day)
+      //   (this should be an object with months, days and counters)¬
       // Increment counter for every user for the appropriate day¬
-      // When finished iterating over all users kick off task to build daily ES entries from the object¬
+      // When finished iterating over all users kick off
+      //   task to build daily ES entries from the object¬
 
       return self.finished;
     }, function(cb) {
       process.nextTick(function() {
-        //console.log('Checking if cursor is closed: ', self.cursor.isClosed(), ' self.finished(): ', self.finished);
         if (!self.cursor.isClosed()) {
           self.count = 0;
           console.log('Filling queue');
@@ -123,17 +121,24 @@ function River() {
               console.log('Last Doc Date: %s', self.lastDocDate);
               self.finished = true;
               if ( self.count === 0 ) {
-                cursor.close();
+                self.cursor.close();
               }
               return cb();
             }
 
-            console.log('Processed: %s BatchSize: %s userCount: %s', self.count, self.batchSize, self.userCount);
+            console.log(
+              'Processed: %s BatchSize: %s userCount: %s',
+              self.count,
+              self.batchSize,
+              self.userCount
+            );
 
             self.lastDocDate = item.created;
 
             self.pushItem(item, function() {
-              //console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
+              //console.log('Count: %s Batch Size: %s',
+              //self.count,
+              //self.batchSize);
 
               // **************************
               // Count should be +1 to detect last item for date!!!
@@ -146,56 +151,19 @@ function River() {
       console.log('Finished');
       callback(err);
     });
-  };
+};
 
-  this.pushItem = function pushItem(item, callback) {
+River.prototype.pushItem = function pushItem(item, callback) {
     //console.log('Pushing Item to queue: ', item);
 
-    self.queue.push(item, function() {
+    this.queue.push(item, function() {
       callback();
     });
 
     process.stdout.write('+');
-  };
+};
 
-  this.processNextItem = function processNextItem(myItem, cb) {
-    //console.log('ITEM: ', JSON.stringify(myItem));
-
-    self.processItem(myItem, function(processedItem) {
-      self.esPusher.push(processedItem, function(err, response) {
-        if (err) {
-          return cb(err);
-        }
-
-        process.stdout.write('-');
-        return cb();
-      });
-    });
-  };
-
-  this.getCursor = function getCursor(callback) {
-    this.config = {
-      collection: 'users',
-      method: 'getCursor',
-      startDate: this.lastDocDate
-    };
-
-    console.log('Trying to get cursor from mongoPuller');
-
-    /*
-     * This causes a memory leak here! Need to clean these up after they're done
-     * either in here or in mongoPuller
-     */
-    this.mongoPuller.pull(this.config, function(err, cursor) {
-      if (err) {
-        return console.log('Got error while iterating cursor: ', err);
-      }
-
-      return callback(cursor);
-    });
-  };
-
-  this.processItem = function processItem(item, callback) {
+River.prototype.processItem = function processItem(item, callback) {
     var self = this;
     var processedItem = item;
 
@@ -216,8 +184,48 @@ function River() {
     console.log('Processed Item ID: ', processedItem.email);
 
     return callback(processedItem);
+};
+
+
+River.prototype.processNextItem = function processNextItem(myItem, cb) {
+  var self = this;
+
+  this.processItem(myItem, function(processedItem) {
+    self.esPusher.push(processedItem, function(err) {
+      if (err) {
+        return cb(err);
+      }
+
+      process.stdout.write('-');
+      return cb();
+    });
+  });
+};
+
+River.prototype.getCursor = function getCursor(callback) {
+  var self = this;
+  this.config = {
+    collection: 'users',
+    method: 'getCursor',
+    startDate: this.lastDocDate
   };
-}
+
+  console.log('Trying to get cursor from mongoPuller');
+
+  self.mongoPuller.open(function(err) {
+    if (err) {
+      return console.log('Error opening connection to MongoDB: %s', err);
+    }
+
+    self.mongoPuller.pull(self.config, function(err, cursor) {
+      if (err) {
+        return console.log('Got error while iterating cursor: ', err);
+      }
+
+      return callback(cursor);
+    });
+  });
+};
 
 var river = new River();
 river.run();

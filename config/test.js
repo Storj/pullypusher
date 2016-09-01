@@ -7,17 +7,16 @@ module.exports = {
     level: 'debug'
   },
   mongodb: {
-    host: process.env.MONGO_HOST || '127.0.0.1',
-    port: process.env.MONGO_PORT || 27017,
+    host: process.env.MONGO_host || 'mongodb://localhost:27017/pullypusher',
+    port: process.env.MONGO_port || 3000,
     user: process.env.MONGO_USER,
     pass: process.env.MONGO_PASS,
-    dbName: process.env.MONGO_DB_NAME || 'test',
-    ssl: process.env.MONGO_SSL || false,
-    ssl_validate: process.env.MONGO_SSL_VALIDATE || false
+    ssl: process.env.MONGO_ssl || true,
+    ssl_validate: process.env.MONGO_SSL_VALIDATE || true
   },
   elasticsearch: {
-    host: process.env.ES_HOST || 'localhost',
-    port: process.env.ES_PORT || 9200,
+    host: process.env.ES_host || 'localhost',
+    port: process.env.ES_port || 9200,
     ssl: process.env.ES_SSL || false,
     user: process.env.ES_USER || null,
     pass: process.env.ES_PASS || null,
@@ -26,7 +25,7 @@ module.exports = {
     log: process.env.ES_LOG || 'info'
   },
   http: {
-    host: process.env.HTTP_HOST || 'localhost',
+    host: process.env.HTTP_host || 'localhost',
     path: process.env.HTTP_PATH || '/'
   }
 };
