@@ -227,17 +227,21 @@ var pullFromMongo = function pullFromMongo() {
       finish(apiStatsData);
       console.log('Started finish...');
     });
-
   });
 };
 
 
-CronJob('*/1 * * * *', function() {
-  console.log('[CRON] Running pullFromMongo()');
-  pullFromMongo();
-}, function() {
-  console.log('[CRON] Done running pullFromMongo()');
-}, true);
+var start = function start() {
+  var cronJob = new CronJob('*/1 * * * *', function() {
+    console.log('[CRON] Running pullFromMongo()');
+    pullFromMongo();
+  }, function() {
+    console.log('[CRON] Done running pullFromMongo()');
+  }, true);
+  cronJob.start();
+};
+
+start();
 
 process.on('SIGINT', function() {
   exitGracefully();
