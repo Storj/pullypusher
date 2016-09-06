@@ -3,13 +3,12 @@
  * @module pullypusher
  */
 
-const fs = require('fs');
 const async = require('async');
 const config = require('config');
 const CronJob = require('cron').CronJob;
 
 // Should load all modules dynamically
-var httpRequest = require('../app/modules/httpRequest');
+// var httpRequest = require('../app/modules/httpRequest');
 var EsPusher = require('../app/modules/esPusher');
 var MongoPuller = require('../app/modules/mongoPuller');
 
@@ -36,17 +35,43 @@ var mongoPullerConfig = {
 
 var mongoPuller = new MongoPuller(mongoPullerConfig);
 
-var pullFromMongo = function pullFromMongo(data) {
-  console.log("Pulling data from MongoDB");
-
+var pullFromMongo = function pullFromMongo() {
+  console.log('Pulling data from MongoDB');
 
   mongoPuller.open(function(err) {
     if (err) {
-      return console.log('Error opening mongodb connection from data-api.js: %s', err);
+      return console.log('Error connecting to mongo: %s', err);
     }
 
     console.log('Opened mongo connection from data-api.js');
 
+    function finish(statusReportData) {
+      console.log('Running FINISH');
+
+      console.log('Done with Mongo, trying to close connection...');
+
+      mongoPuller.close(function(err) {
+        if (err) {
+          console.log('Error closing mongo connection: %s', err);
+        }
+
+        console.log('Closed mongo connection');
+      });
+
+      statusReportData.totalStorage = (
+        statusReportData.storageFree + statusReportData.storageUsed
+      );
+
+      console.log('Sending statusReportData to ES: %s', statusReportData);
+
+      esPusher.push(statusReportData, function(err) {
+        if (err) {
+          return console.log('Error writing API file data to ES: %s', err);
+        }
+
+        console.log('Wrote File data to ES');
+      });
+    }
 
     var statusReportData = {};
 
@@ -56,7 +81,7 @@ var pullFromMongo = function pullFromMongo(data) {
           collection: 'reports',
           method: 'count'
         }, function(err, count) {
-          console.log("reports: " + count);
+          console.log('reports: %s', count);
           statusReportData.reportCount = count;
           callback(err, 'reports');
         });
@@ -69,14 +94,32 @@ var pullFromMongo = function pullFromMongo(data) {
         mongoPuller.pull({
           collection: 'reports',
           method: 'aggregate',
-          query: [ { $match: { timestamp: { $gt: dateFrom, $lt: dateTo } } }, { $group: { _id: "$nodeID", storage_used: { $max: "$storage.used" } } }, {  $group: { _id: "$nodeID", total_storage_used: { $sum: "$storage_used" } } } ]
+          query: [
+            { $match:
+              { timestamp:
+                { $gt: dateFrom, $lt: dateTo }
+              }
+            },
+            { $group:
+              { _id: '$nodeID', storage_used:
+                { $max: '$storage.used' }
+              }
+            },
+            {  $group:
+              { _id: '$nodeID', total_storage_used:
+                { $sum: '$storage_used' }
+              }
+            }
+          ]
 
         }, function(err, result) {
           if (err) {
-            console.log("Error while pulling aggregations: " + err);
+            console.log('Error while pulling aggregations: %s', err);
           }
           statusReportData.storageUsed = result[0].total_storage_used;
-          console.log("Aggregation (storage used): ", result[0].total_storage_used);
+          var storageUsed = result[0].total_storage_used;
+
+          console.log('Aggregation (storage used): %s', storageUsed);
           callback(err, 'aggregate');
         });
       },
@@ -88,57 +131,62 @@ var pullFromMongo = function pullFromMongo(data) {
         mongoPuller.pull({
           collection: 'reports',
           method: 'aggregate',
-          query: [ { $match: { timestamp: { $gt: dateFrom, $lt: dateTo } } }, { $group: { _id: "$nodeID", storage_free: { $max: "$storage.free" } } }, {  $group: { _id: "$nodeID", total_storage_free: { $sum: "$storage_free" } } } ]
-
+          query: [
+            { $match:
+              { timestamp:
+                { $gt: dateFrom, $lt: dateTo }
+              }
+            },
+            { $group:
+              { _id: '$nodeID', storage_free:
+                { $max: '$storage.free' }
+              }
+            },
+            {  $group:
+              { _id: '$nodeID', total_storage_free:
+                { $sum: '$storage_free' }
+              }
+            }
+          ]
         }, function(err, result) {
           if (err) {
-            console.log("Error while pulling aggregations: " + err);
+            console.log('Error while pulling aggregations: %s', err);
           }
           statusReportData.storageFree = result[0].total_storage_free;
-          console.log("Aggregation (storage free): ", result[0].total_storage_free);
+          var storageFree = result[0].total_storage_free;
+          console.log('Aggregation (storage free): %s', storageFree);
           callback(err, 'aggregate');
         });
       }
     ], function(err, result) {
         finish(statusReportData);
-        console.log("Started finish...");
+        console.log('Started finish (from %s)...', result);
       }
     );
 
-    function finish(statusReportData) {
-      console.log("Running FINISH");
-
-      console.log('Done with Mongo, trying to close connection...');
-
-      mongoPuller.close(function(err) {
-        if (err) {
-          console.log('Error closing mongo connection: %s', err);
-        }
-
-        console.log('Closed mongo connection');
-      });
-
-      statusReportData.totalStorage = ( statusReportData.storageFree + statusReportData.storageUsed );
-
-      console.log("Sending statusReportData to ES: ", statusReportData);
-
-      esPusher.push(statusReportData, function(err) {
-        if (err) {
-          return console.log("Error writing API file data to ES: " + err);
-        }
-
-        console.log("Wrote File data to ES");
-      });
-    }
   });
 };
 
-new CronJob('*/2 * * * *', function() {
-  console.log("[CRON] Running pullFromMongo()");
+CronJob('*/2 * * * *', function() {
+  console.log('[CRON] Running pullFromMongo()');
   pullFromMongo();
 }, function() {
-  console.log("[CRON] Done running pullFromMongo()");
+  console.log('[CRON] Done running pullFromMongo()');
 }, true);
+
+const exitGracefully = function exitGracefully() {
+  console.log('Exiting...');
+
+  mongoPuller.close(function() {
+    console.log('[INDEX] Closed Mongo connection');
+
+    esPusher.close(function() {
+      console.log('[INDEX] Closed ES connection');
+
+      process.exit();
+    });
+  });
+};
 
 process.on('SIGINT', function() {
   exitGracefully();
@@ -147,17 +195,3 @@ process.on('SIGINT', function() {
 process.on('SIGTERM', function() {
   exitGracefully();
 });
-
-const exitGracefully = function exitGracefully() {
-  console.log("Exiting...");
-
-  mongoPuller.close(function() {
-    console.log("[INDEX] Closed Mongo connection");
-
-    esPusher.close(function() {
-      console.log("[INDEX] Closed ES connection");
-
-      process.exit();
-    });
-  });
-};

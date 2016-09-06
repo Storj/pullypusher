@@ -40,35 +40,29 @@ EsPusher.prototype._init = function _init(options) {
 };
 
 EsPusher.prototype.buildURI = function buildURI() {
-  var URI = "";
+  var URI = '';
 
   if (this.ssl) {
-    URI = "https://";
+    URI = 'https://';
   } else {
-    URI = "http://";
+    URI = 'http://';
   }
 
   if (this.user && this.pass) {
-    URI += this.user + ":" + this.pass + "@";
+    URI += this.user + ':' + this.pass + '@';
   }
 
-  URI += this.host + ":" + this.port;
+  URI += this.host + ':' + this.port;
 
   return URI;
-}
+};
 
 EsPusher.prototype.push = function push(options, callback) {
-
-  var options = options;
-  //console.log("[ESPUSHER] - options: ", options);
-
-//console.log('ES pusher config: host: %s, port %s, ssl: %s, user: %s pass: %s, index: %s, type: %s, date: %s', this.host, this.port, this.ssl, this.user, this.pass, this.index, this.type, this.date);
-
   // Add option to add custom tags here
   options.tags = [ 'pullypusher' ];
 
-  if (!options["@timestamp"]) {
-    options["@timestamp"] = new Date();
+  if (!options['@timestamp']) {
+    options['@timestamp'] = new Date();
   }
 
   if (!options.timestamp) {
@@ -78,19 +72,21 @@ EsPusher.prototype.push = function push(options, callback) {
   //console.log('options.timestamp: %s', options.timestamp);
 
   var date = options.timestamp;
-  var indexDate = date.getFullYear() + '.' + ("0" + (date.getMonth() + 1)).slice(-2) + '.' + ("0" + date.getDate()).slice(-2);
+  var indexDate = date.getFullYear() + '.' + (
+    '0' + (date.getMonth() + 1)
+  ).slice(-2) + '.' + ('0' + date.getDate()).slice(-2);
 
   //console.log('index name %s', this.index + '-' + indexDate);
 
   this.client.create({
-    index: this.index + "-" + indexDate,
+    index: this.index + '-' + indexDate,
     type: this.type,
     body: options
   }, function(err, response) {
     //console.log('Created ES client');
 
     if (err) {
-      console.log("Got error: " + err);
+      console.log('Got error: ' + err);
       return callback(err);
     }
 

@@ -40,7 +40,7 @@ MongoPuller.prototype.open = function open(callback) {
   console.log('Opening connection to DB');
   var self = this;
 
-  self.db.open(function(err, db) {
+  self.db.open(function(err) {
     if (err) {
       console.log('Error while connectiong to DB', err);
       return callback(err);
@@ -49,16 +49,20 @@ MongoPuller.prototype.open = function open(callback) {
     if (self.user && self.pass) {
       console.log('Attempting to auth to MongoDB - User: %s', self.user);
 
-      self.db.authenticate(self.user, self.pass, function(err, authenticatedDb) {
-        if (err) {
-          console.log('Error while autehnticating to DB', err);
-          return callback(err);
+      self.db.authenticate(
+        self.user,
+        self.pass,
+        function(err, authenticatedDb) {
+          if (err) {
+            console.log('Error while autehnticating to DB', err);
+            return callback(err);
+          }
+
+          console.log('MongoDB authentication success: %s', authenticatedDb);
+
+          callback();
         }
-
-        console.log('authenticated: ', authenticatedDb);
-
-        callback();
-      });
+      );
     } else {
       console.log('No auth provided');
       return callback(err);
@@ -72,17 +76,16 @@ MongoPuller.prototype.pull = function pull(options, callback) {
   var method = options.method;
   var query = options.query;
   var startDate = options.startDate;
-  var auth = { user: this.user, pass: this.pass };
   var collection = this.db.collection(collectionName);
 
-  if (method == 'count') {
+  if (method === 'count') {
     if (query) {
       collection.count(query, function(err, count) {
         if (err) {
           return callback(err, null);
         }
 
-        console.log("[MONGODB] Count with query done...");
+        console.log('[MONGODB] Count with query done...');
         return callback(null, count);
       });
     } else {
@@ -91,13 +94,13 @@ MongoPuller.prototype.pull = function pull(options, callback) {
           return callback(err, null);
         }
 
-        console.log("[MONGODB] Count done...");
+        console.log('[MONGODB] Count done...');
         return callback(null, count);
       });
     }
   }
 
-  if (method == 'find') {
+  if (method === 'find') {
     collection.find(query, function(err, resultCursor) {
       if (err) {
         console.log('Error running FIND: %s', err);
@@ -107,7 +110,7 @@ MongoPuller.prototype.pull = function pull(options, callback) {
     });
   }
 
-  if (method == 'findOne') {
+  if (method === 'findOne') {
     collection.findOne(query, function(err, result) {
       if (err) {
         console.log('Error running FIND: %s', err);
@@ -117,15 +120,13 @@ MongoPuller.prototype.pull = function pull(options, callback) {
     });
   }
 
-  if (method == 'getCursor') {
+  if (method === 'getCursor') {
     var cursorQuery = {};
 
     if (startDate) {
-      console.log('Finding with start date');
+      //console.log('Finding with start date');
       // Should be passing this in by var...
       cursorQuery = { 'created': { $gt: startDate } };
-    } else {
-      console.log('Finding without start date');
     }
 
     collection.find(cursorQuery, function(err, cursor) {
@@ -135,9 +136,9 @@ MongoPuller.prototype.pull = function pull(options, callback) {
     });
   }
 
-  if (method == 'aggregate') {
+  if (method === 'aggregate') {
     collection.aggregate(query).toArray(function(err, result) {
-      console.log("[MONGODB] Aggregate done...");
+      console.log('[MONGODB] Aggregate done...');
 
       return callback(err, result);
     });
@@ -147,8 +148,10 @@ MongoPuller.prototype.pull = function pull(options, callback) {
 MongoPuller.prototype.close = function close(callback) {
   this.db.close(function(err, result) {
     if (err) {
-      console.log("Error occurred while closing mongo connection: " + err);
+      console.log('Error occurred while closing mongo connection: %s', err);
     }
+
+    console.log('DB Closed: %s', result);
   });
   return callback();
 };

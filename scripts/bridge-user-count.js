@@ -37,27 +37,38 @@ function River() {
   });
 }
 
+River.prototype.finish = function finish() {
+  this.mongoPuller.close(function(err) {
+    if (err) {
+      return console.log('Error closing MongoDB connection: %s', err);
+    }
+
+    return console.log('Closed MongoDB connection. Done!');
+  });
+};
+
 River.prototype.initQueue = function initQueue(callback) {
     var self = this;
-    self.queue = async.queue(self.processNextItem, self.batchSize);
+    var queue = async.queue(this.processNextItem.bind(self), self.batchSize);
 
-    self.queue.drain = function() {
+    queue.drain = function() {
       process.stdout.write('X');
       self.finished = false;
       self.getCursor(function(cursor) {
         self.cursor = cursor;
-        self.fillQueue(self.queue, function(err) {
+
+        self.fillQueue(queue, function(err) {
           if (err) {
             console.log('ERROR Refilling queue: ', err);
             return callback(null);
           }
 
-          console.log('Refilled queue');
+          //console.log('Refilled queue');
         });
       });
     };
 
-    return callback(self.queue);
+    return callback(queue);
 };
 
 River.prototype.run = function run() {
@@ -65,22 +76,28 @@ River.prototype.run = function run() {
     console.log('Starting Mongo to ES River');
     console.log('Filling queue for the first time...');
 
-    self.getCursor(function(cursor) {
-      self.cursor = cursor;
+    self.mongoPuller.open(function(err) {
+      if (err) {
+        return console.log('Error opening connection to MongoDB: %s', err);
+      }
 
-      self.initQueue(function(queue) {
-        self.queue = queue;
+      self.getCursor(function(cursor) {
+        self.cursor = cursor;
 
-        console.log('Got cursor');
+        self.initQueue(function(queue) {
+          self.queue = queue;
 
-        self.finished = false;
+          console.log('Got cursor');
 
-        self.fillQueue(self.queue, function(err) {
-          if (err) {
-            console.log('Error filling queue: %s', err);
-          }
+          self.finished = false;
 
-          console.log('Filled queue for the first time');
+          self.fillQueue(self.queue, function(err) {
+            if (err) {
+              console.log('Error filling queue: %s', err);
+            }
+
+            console.log('Filled queue for the first time');
+          });
         });
       });
     });
@@ -103,7 +120,7 @@ River.prototype.fillQueue = function fillQueue(queue, callback) {
       process.nextTick(function() {
         if (!self.cursor.isClosed()) {
           self.count = 0;
-          console.log('Filling queue');
+          //console.log('Filling queue');
           self.cursor.sort({ created: 1 });
           self.cursor.limit(self.batchSize);
 
@@ -111,7 +128,6 @@ River.prototype.fillQueue = function fillQueue(queue, callback) {
             //console.log('Item: %s', JSON.stringify(item));
             self.count++;
             self.userCount++;
-
 
             if (err) { console.log('ERROR looping: %s', err);
               return cb(err);
@@ -126,16 +142,22 @@ River.prototype.fillQueue = function fillQueue(queue, callback) {
               return cb();
             }
 
+            /*
             console.log(
               'Processed: %s BatchSize: %s userCount: %s',
               self.count,
               self.batchSize,
               self.userCount
             );
+            */
 
             self.lastDocDate = item.created;
 
-            self.pushItem(item, function() {
+            self.pushItem(item, function(err) {
+              if (err) {
+                return console.log('Error processing item!');
+              }
+
               //console.log('Count: %s Batch Size: %s',
               //self.count,
               //self.batchSize);
@@ -148,7 +170,7 @@ River.prototype.fillQueue = function fillQueue(queue, callback) {
         }
       });
     }, function(err) {
-      console.log('Finished');
+      //console.log('Finished processing items in queue');
       callback(err);
     });
 };
@@ -160,7 +182,7 @@ River.prototype.pushItem = function pushItem(item, callback) {
       callback();
     });
 
-    process.stdout.write('+');
+    //process.stdout.write('+');
 };
 
 River.prototype.processItem = function processItem(item, callback) {
@@ -181,11 +203,10 @@ River.prototype.processItem = function processItem(item, callback) {
       console.log('No item to process');
     }
 
-    console.log('Processed Item ID: ', processedItem.email);
+    //console.log('Processed Item ID: ', processedItem.email);
 
     return callback(processedItem);
 };
-
 
 River.prototype.processNextItem = function processNextItem(myItem, cb) {
   var self = this;
@@ -196,7 +217,7 @@ River.prototype.processNextItem = function processNextItem(myItem, cb) {
         return cb(err);
       }
 
-      process.stdout.write('-');
+      //process.stdout.write('-');
       return cb();
     });
   });
@@ -210,22 +231,33 @@ River.prototype.getCursor = function getCursor(callback) {
     startDate: this.lastDocDate
   };
 
-  console.log('Trying to get cursor from mongoPuller');
+  //console.log('Trying to get cursor from mongoPuller');
 
-  self.mongoPuller.open(function(err) {
+  self.mongoPuller.pull(self.config, function(err, cursor) {
     if (err) {
-      return console.log('Error opening connection to MongoDB: %s', err);
+      return console.log('Got error while iterating cursor: ', err);
     }
 
-    self.mongoPuller.pull(self.config, function(err, cursor) {
-      if (err) {
-        return console.log('Got error while iterating cursor: ', err);
+    cursor.count(function(err, count) {
+      if (count === 0) {
+        console.log('Cursor count is 0, that means were done here');
+        return self.finish();
       }
+
+      console.log('cursor count: %s', count);
 
       return callback(cursor);
     });
+
   });
 };
 
-var river = new River();
-river.run();
+function start() {
+  var river = new River();
+  river.run();
+}
+
+start();
+
+module.exports = River;
+
