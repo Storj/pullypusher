@@ -232,7 +232,7 @@ var pullFromMongo = function pullFromMongo() {
 
 
 var start = function start() {
-  var cronJob = new CronJob('*/1 * * * *', function() {
+  var cronJob = new CronJob('*/10 * * * *', function() {
     console.log('[CRON] Running pullFromMongo()');
     pullFromMongo();
   }, function() {
