@@ -13,24 +13,24 @@ var EsPusher = require('../app/modules/esPusher');
 var MongoPuller = require('../app/modules/mongoPuller');
 
 var esPusher = new EsPusher({
-  host: config.elasticsearch.HOST,
-  port: config.elasticsearch.PORT,
-  ssl: config.elasticsearch.SSL,
-  log: config.elasticsearch.LOG,
-  index: config.elasticsearch.INDEX,
-  type: config.elasticsearch.TYPE,
-  user: config.elasticsearch.USER,
-  pass: config.elasticsearch.PASS
+  host: config.elasticsearch.host,
+  port: config.elasticsearch.port,
+  ssl: config.elasticsearch.ssl,
+  log: config.elasticsearch.log,
+  index: config.elasticsearch.index,
+  type: config.elasticsearch.type,
+  user: config.elasticsearch.user,
+  pass: config.elasticsearch.pass
 });
 
 var mongoPullerConfig = {
-  host: config.mongodb.HOST,
-  dbName: config.mongodb.DB_NAME,
-  port: config.mongodb.PORT,
-  ssl: config.mongodb.SSL,
-  sslValidate: config.mongodb.SSL_VALIDATE,
-  user: config.mongodb.USER,
-  pass: config.mongodb.PASS
+  host: config.mongodb.host,
+  dbName: config.mongodb.db_name,
+  port: config.mongodb.port,
+  ssl: config.mongodb.ssl,
+  sslValidate: config.mongodb.ssl_validate,
+  user: config.mongodb.user,
+  pass: config.mongodb.pass
 };
 
 var mongoPuller = new MongoPuller(mongoPullerConfig);
@@ -163,16 +163,18 @@ var pullFromMongo = function pullFromMongo() {
         console.log('Started finish (from %s)...', result);
       }
     );
-
   });
 };
 
-CronJob('*/2 * * * *', function() {
-  console.log('[CRON] Running pullFromMongo()');
-  pullFromMongo();
-}, function() {
-  console.log('[CRON] Done running pullFromMongo()');
-}, true);
+var start = function start() {
+  var myCron = new CronJob('*/2 * * * *', function() {
+    console.log('[CRON] Running pullFromMongo()');
+    pullFromMongo();
+  }, function() {
+    console.log('[CRON] Done running pullFromMongo()');
+  }, true);
+  myCron.start();
+};
 
 const exitGracefully = function exitGracefully() {
   console.log('Exiting...');
@@ -187,6 +189,8 @@ const exitGracefully = function exitGracefully() {
     });
   });
 };
+
+start();
 
 process.on('SIGINT', function() {
   exitGracefully();
