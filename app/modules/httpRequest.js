@@ -14,18 +14,18 @@ const httpRequest = function httpRequest(data, callback) {
   }, function(res) {
     var body = '';
 
-    res.on("data", function(chunk) {
+    res.on('data', function(chunk) {
       body += chunk;
     });
 
-    res.on("end", function() {
+    res.on('end', function() {
       var responseData = JSON.parse(body);
 
       callback(null, responseData);
     });
-  }).on('error', function(e) {
-    console.log("Got error: " + e.message);
-    return callback(err, null);
+  }).on('error', function(err) {
+    console.log('Got error: %s', err.message);
+    return callback(err.message, null);
   });
 };
 

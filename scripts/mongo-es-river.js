@@ -7,13 +7,9 @@ const config = require('config');
 const async = require('async');
 
 function River() {
-  var self = this;
-  var cursor;
-  var lastDocDate;
-  self.queue;
-  self.batchSize = 20;
-  self.count = 0;
-  self.finished = false;
+  this.batchSize = 20;
+  this.count = 0;
+  this.finished = false;
 
   var EsPusher = require('../app/modules/esPusher');
   this.esPusher = new EsPusher({
@@ -37,147 +33,148 @@ function River() {
     user: config.mongodb.USER,
     pass: config.mongodb.PASS
   });
+}
 
-  this.initQueue = function initQueue(callback) {
-    var queue = async.queue(self.processNextItem, 10);
-    self.queue = this.queue;
+River.prototype.initQueue = function initQueue(callback) {
+  var self = this;
 
-    // Need to either iterate on the cursor (maybe stream cursor) or
-    // get a new cursor starting with the right date item (where we left off)
+  this.queue = async.queue(this.processNextItem, 10);
 
-    queue.drain = function() {
-      process.stdout.write('X');
-      self.count = 0;
-      self.finished = false;
-      self.getCursor(function(cursor) {
-        self.cursor = cursor;
-        self.fillQueue(function(err) {
-          if (err) {
-            console.log('ERROR Refilling queue: ', err);
-            return callback(null);
-          }
+  // Need to either iterate on the cursor (maybe stream cursor) or
+  // get a new cursor starting with the right date item (where we left off)
 
-          //console.log('Queue: ', self.queue);
-
-          console.log('Refilled queue');
-        });
-      });
-    };
-
-    return callback(queue);
-  };
-
-  this.run = function run() {
-    console.log("Starting Mongo to ES River");
-    console.log('Got mongo cursor');
-    console.log('Starting queue function');
-    console.log('Filling queue for the first time...');
-
+  this.queue.drain = function() {
+    process.stdout.write('X');
+    self.count = 0;
+    self.finished = false;
     self.getCursor(function(cursor) {
       self.cursor = cursor;
+      self.fillQueue(function(err) {
+        if (err) {
+          console.log('ERROR Refilling queue: ', err);
+          return callback(null);
+        }
 
-      self.initQueue(function(queue) {
-        self.queue = queue;
+        //console.log('Queue: ', self.queue);
 
-        console.log('Got cursor');
+        console.log('Refilled queue');
+      });
+    });
+  };
 
-        self.finished = false;
+  return callback(this.queue);
+};
 
-        self.fillQueue(function(err) {
+River.prototype.run = function run() {
+  var self = this;
+
+  console.log('Starting Mongo to ES River');
+
+  this.getCursor(function(cursor) {
+    self.cursor = cursor;
+
+    self.initQueue(function(queue) {
+      self.queue = queue;
+
+      console.log('Got cursor');
+
+      self.finished = false;
+
+      console.log('Filling queue for the first time...');
+      self.fillQueue(function(err) {
+        if (err) {
+          console.log('Error filling queue: %s', err);
+        }
+
+        console.log('Filled queue for the first time');
+      });
+    });
+  });
+};
+
+River.prototype.fillQueue = function fillQueue(callback) {
+  var self = this;
+
+  async.until(function() {
+    return self.finished;
+  }, function(cb) {
+    process.nextTick(function() {
+      if (!self.cursor.isClosed()) {
+        self.cursor.sort({ timestamp: 1 });
+        self.cursor.limit(self.batchSize);
+
+        self.cursor.each(function(err, item) {
+
           if (err) {
-            console.log('Error filling queue: %s', err);
+            console.log('ERROR looping: %s', err);
+            return cb(err);
           }
 
-          console.log('Filled queue for the first time');
-        });
-      });
-    });
-  };
+          if (item === null) {
+            self.finished = true;
+            return cb();
+          }
 
-  this.fillQueue = function fillQueue(callback) {
-    async.until(function() {
-      //console.log('self.finished is ', self.finished);
+          if (self.count === self.batchSize) {
+            console.log('Last Doc Date: %s', item.timestamp);
 
-      return self.finished;
-    }, function(cb) {
-      process.nextTick(function() {
-        //console.log('Checking if cursor is closed: ', self.cursor.isClosed(), ' self.finished(): ', self.finished);
-        if (!self.cursor.isClosed()) {
-          //console.log('Filling queue');
-          self.cursor.sort({ timestamp: 1 });
-          self.cursor.limit(self.batchSize);
+            self.lastDocDate = item.timestamp;
+          }
 
-          self.cursor.each(function(err, item) {
-            //console.log('Item: %s', JSON.stringify(item));
+          self.pushItem(item, function() {
+            console.log('Item Date: %s Count: %s BatchSize: %s',
+              item.timestamp,
+              self.count,
+              self.batchSize
+            );
 
-            if (err) {
-              console.log('ERROR looping: %s', err);
-              return cb(err);
-            }
-
-            if (item === null) {
-              //console.log('Setting finished to true');
-              self.finished = true;
-              return cb();
-            }
-
-            if (self.count === self.batchSize) {
-              console.log('Last Doc Date: %s', item.timestamp);
-
-              self.lastDocDate = item.timestamp;
-            }
-
-            self.pushItem(item, function() {
-              //console.log('Count: %s Batch Size: %s', self.count, self.batchSize);
-              console.log('Item Date: %s Count: %s BatchSize: %s', item.timestamp, self.count, self.batchSize);
-
-              // **************************
-              // Count should be +1 to detect last item for date!!!
-              // **************************
-              self.count++;
-            });
+            self.count++;
           });
-        }
-      });
-    }, function(err) {
-      console.log('Finished');
-      callback(err);
+        });
+      }
     });
+  }, function(err) {
+    console.log('Finished');
+    callback(err);
+  });
+};
+
+River.prototype.pushItem = function pushItem(item, callback) {
+  this.queue.push(item, function() {
+    callback();
+  });
+
+  process.stdout.write('+');
+};
+
+River.prototype.processNextItem = function processNextItem(myItem, cb) {
+  //console.log('ITEM: ', JSON.stringify(myItem));
+
+  this.processItem(myItem, function(processedItem) {
+    this.esPusher.push(processedItem, function(err) {
+      if (err) {
+        return cb(err);
+      }
+
+      process.stdout.write('-');
+      return cb();
+    });
+  });
+};
+
+River.prototype.getCursor = function getCursor(callback) {
+  this.config = {
+    collection: 'reports',
+    method: 'getCursor',
+    startDate: this.lastDocDate
   };
 
-  this.pushItem = function pushItem(item, callback) {
-    //console.log('item: ', item);
+  console.log('Trying to get cursor from mongoPuller');
 
-    self.queue.push(item, function() {
-      callback();
-    });
-
-    process.stdout.write('+');
-  };
-
-  this.processNextItem = function processNextItem(myItem, cb) {
-    //console.log('ITEM: ', JSON.stringify(myItem));
-
-    self.processItem(myItem, function(processedItem) {
-      self.esPusher.push(processedItem, function(err, response) {
-        if (err) {
-          return cb(err);
-        }
-
-        process.stdout.write('-');
-        return cb();
-      });
-    });
-  };
-
-  this.getCursor = function getCursor(callback) {
-    this.config = {
-      collection: 'reports',
-      method: 'getCursor',
-      startDate: lastDocDate
-    };
-
-    console.log('Trying to get cursor from mongoPuller');
+  this.mongoPuller.open(function(err) {
+    if (err) {
+      return console.log('Error opening connection to MongoDB: %s', err);
+    }
 
     this.mongoPuller.pull(this.config, function(err, cursor) {
       if (err) {
@@ -186,19 +183,19 @@ function River() {
 
       return callback(cursor);
     });
-  };
+  });
+};
 
-  this.processItem = function processItem(item, callback) {
-    var processedItem = item;
-    if (processedItem && processedItem._id) {
-      delete processedItem._id;
-    } else {
-      console.log('No item to process');
-    }
+River.prototype.processItem = function processItem(item, callback) {
+  var processedItem = item;
+  if (processedItem && processedItem._id) {
+    delete processedItem._id;
+  } else {
+    console.log('No item to process');
+  }
 
-    return callback(processedItem);
-  };
-}
+  return callback(processedItem);
+};
 
 var river = new River();
 river.run();

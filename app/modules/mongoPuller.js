@@ -1,112 +1,159 @@
-function MongoPuller(data) {
-  var mongo = require('mongodb');
-  var host = data.host || '127.0.0.1';
-  var dbName = data.dbName;
-  var port = data.port || 27017;
-  var ssl = data.ssl || false;
-  var sslValidate = data.sslValidate || false;
-  var user = data.user;
-  var pass = data.pass;
+'use strict'
 
-  this.server = new mongo.Server(host, port, {
-    ssl: ssl,
-    sslValidate: sslValidate
+var mongo = require('mongodb');
+var config = require('config');
+var merge = require('merge');
+
+function MongoPuller(options) {
+  if (!(this instanceof MongoPuller)) {
+    return new MongoPuller(options);
+  }
+
+  if (!options) {
+    options = {};
+  }
+
+  options = merge(config.mongodb, options);
+
+  this._init(options);
+}
+
+
+MongoPuller.prototype._init = function _init(options) {
+  this.host = options.host;
+  this.dbName = options.dbName;
+  this.port = options.port;
+  this.ssl = options.ssl;
+  this.sslValidate = options.sslValidate;
+  this.user = options.user;
+  this.pass = options.pass;
+
+  this.server = new mongo.Server(this.host, this.port, {
+    ssl: this.ssl,
+    sslValidate: this.sslValidate,
   });
 
-  this.db = new mongo.Db(dbName, this.server, { w: 1 });
+  this.db = new mongo.Db(this.dbName, this.server, { w: 1 });
+};
 
+MongoPuller.prototype.open = function open(callback) {
+  console.log('Opening connection to DB');
   var self = this;
 
-  this.pull = function pull(data, callback) {
-    var collectionName = data.collection;
-    var method = data.method;
-    var query = data.query;
-    var startDate = data.startDate;
+  self.db.open(function(err) {
+    if (err) {
+      console.log('Error while connectiong to DB', err);
+      return callback(err);
+    }
+    // If we need to authenticate, do so now
+    if (self.user && self.pass) {
+      console.log('Attempting to auth to MongoDB - User: %s', self.user);
 
-    //console.log("Pulling MongoDB data from collection " + collectionName);
+      self.db.authenticate(
+        self.user,
+        self.pass,
+        function(err, authenticatedDb) {
+          if (err) {
+            console.log('Error while autehnticating to DB', err);
+            return callback(err);
+          }
 
-    // Pull this from config (which should be from ENV)
-    var auth = { user: user, pass: pass };
+          console.log('MongoDB authentication success: %s', authenticatedDb);
 
-    this.db.open(function(err, db) {
-      if (err) throw err;
-      //console.log("MongoDB Connection opened");
-
-      //console.log('Collection Name %s', collectionName);
-      //console.log('Host: %s DB: %s', host, dbName);
-
-      var collection = db.collection(collectionName);
-
-      if (method == 'count') {
-        if (query) {
-          collection.count(query, function(err, count) {
-            if (err) {
-              return callback(err, null);
-            }
-
-            console.log("[MONGODB] Count with query done...");
-            return callback(null, count);
-          });
-        } else {
-          collection.count(function(err, count) {
-            if (err) {
-              return callback(err, null);
-            }
-
-            console.log("[MONGODB] Count done...");
-            return callback(null, count);
-          });
+          callback();
         }
-      }
+      );
+    } else {
+      console.log('No auth provided');
+      return callback(err);
+    }
+  });
+};
 
-      if (method == 'find') {
-        collection.find(query, function(err, resultArray) {
-          console.log("[MONGODB] Find query done...");
-          console.log("[MONGODB] resultArray.length: ", resultArray.length);
 
-          return callback(err, resultArray);
-        });
-      }
+MongoPuller.prototype.pull = function pull(options, callback) {
+  var collectionName = options.collection;
+  var method = options.method;
+  var query = options.query;
+  var startDate = options.startDate;
+  var collection = this.db.collection(collectionName);
 
-      if (method == 'getCursor') {
-        var cursorQuery = {};
-
-        if (startDate) {
-          console.log('Finding with start date');
-          // Should be passing this in by var...
-          cursorQuery = { 'created': { $gt: startDate } };
-        } else {
-          console.log('Finding without start date');
+  if (method === 'count') {
+    if (query) {
+      collection.count(query, function(err, count) {
+        if (err) {
+          return callback(err, null);
         }
 
-        collection.find(cursorQuery, function(err, cursor) {
-          //console.log("[MONGODB] Find query done...");
+        console.log('[MONGODB] Count with query done...');
+        return callback(null, count);
+      });
+    } else {
+      collection.count(function(err, count) {
+        if (err) {
+          return callback(err, null);
+        }
 
-          return callback(err, cursor);
-        });
-      }
+        console.log('[MONGODB] Count done...');
+        return callback(null, count);
+      });
+    }
+  }
 
-      if (method == 'aggregate') {
-        collection.aggregate(query).toArray(function(err, result) {
-          console.log("[MONGODB] Aggregate done...");
-
-          return callback(err, result);
-        });
-      }
-    });
-  };
-
-  this.close = function close(callback) {
-    self.db.close(function(err, result) {
+  if (method === 'find') {
+    collection.find(query, function(err, resultCursor) {
       if (err) {
-        console.log("Error occurred while closing mongo connection: " + err);
+        console.log('Error running FIND: %s', err);
       }
 
-      console.log("Error is: " + err);
-      console.log("Close mongo result: " + result);
+      return callback(err, resultCursor);
     });
-    return callback();
-  };
-}
+  }
+
+  if (method === 'findOne') {
+    collection.findOne(query, function(err, result) {
+      if (err) {
+        console.log('Error running FIND: %s', err);
+      }
+
+      return callback(err, result);
+    });
+  }
+
+  if (method === 'getCursor') {
+    var cursorQuery = {};
+
+    if (startDate) {
+      //console.log('Finding with start date');
+      // Should be passing this in by var...
+      cursorQuery = { 'created': { $gt: startDate } };
+    }
+
+    collection.find(cursorQuery, function(err, cursor) {
+      //console.log("[MONGODB] Find query done...");
+
+      return callback(err, cursor);
+    });
+  }
+
+  if (method === 'aggregate') {
+    collection.aggregate(query).toArray(function(err, result) {
+      console.log('[MONGODB] Aggregate done...');
+
+      return callback(err, result);
+    });
+  }
+};
+
+MongoPuller.prototype.close = function close(callback) {
+  this.db.close(function(err, result) {
+    if (err) {
+      console.log('Error occurred while closing mongo connection: %s', err);
+    }
+
+    console.log('DB Closed: %s', result);
+  });
+  return callback();
+};
 
 module.exports = MongoPuller;

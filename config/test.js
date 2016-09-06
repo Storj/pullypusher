@@ -7,13 +7,13 @@ module.exports = {
     level: 'debug'
   },
   mongodb: {
-    host: process.env.MONGO_HOST || '127.0.0.1',
-    port: process.env.MONGO_PORT || 27017,
+    host: process.env.MONGO_HOST || 'localhost',
+    db_name: process.env.MONGO_DB_NAME || 'pullypusher',
+    port: process.env.MONGO_PORT || 3000,
     user: process.env.MONGO_USER,
     pass: process.env.MONGO_PASS,
-    dbName: process.env.MONGO_DB_NAME || 'test',
-    ssl: process.env.MONGO_SSL || false,
-    ssl_validate: process.env.MONGO_SSL_VALIDATE || false
+    ssl: process.env.MONGO_SSL || true,
+    ssl_validate: process.env.MONGO_SSL_VALIDATE || true
   },
   elasticsearch: {
     host: process.env.ES_HOST || 'localhost',
