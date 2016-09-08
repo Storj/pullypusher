@@ -9,6 +9,8 @@ const CronJob = require('cron').CronJob;
 const MongoPuller = require('../app/modules/mongoPuller');
 const reportOutputFile = './telemetryReport.json';
 const fs = require('fs');
+const mongo = require('mongodb');
+const ObjectID = mongo.ObjectID;
 
 const mongoPullerConfig = {
   host: config.mongodb.host,
@@ -21,6 +23,21 @@ const mongoPullerConfig = {
 };
 
 var mongoPuller = new MongoPuller(mongoPullerConfig);
+
+function objectIDWithTimestamp(timestamp) {
+    // Convert string date to Date object (otherwise assume timestamp is a date)
+    if (typeof(timestamp) == 'string') {
+        timestamp = new Date(timestamp);
+    }
+
+    // Convert date object to hex seconds since Unix epoch
+    var hexSeconds = Math.floor(timestamp/1000).toString(16);
+
+    // Create an ObjectId with that hex timestamp
+    var constructedObjectID = ObjectID(hexSeconds + "0000000000000000");
+
+    return constructedObjectID
+}
 
 var pullFromMongo = function pullFromMongo() {
   console.log('Pulling data from MongoDB');
@@ -45,7 +62,7 @@ var pullFromMongo = function pullFromMongo() {
         console.log('Closed mongo connection');
       });
 
-      fs.writeFile(reportOutputFile, JSON.stringify(telemetryReport), function(err) {
+      fs.writeFile(reportOutputFile, JSON.stringify(telemetryReport, null, 2), function(err) {
         if (err) {
           return console.log('Error writing telemetry report');
         }
@@ -68,18 +85,19 @@ var pullFromMongo = function pullFromMongo() {
         });
       },
       function(callback) {
-        var dateFromMS = ( new Date() - 60000*60 );
-        var dateFrom = new Date(dateFromMS);
-        var dateTo = new Date();
+        var startDateId = objectIDWithTimestamp('2016-08-01T00:00:00.0Z');
+        var endDateId = objectIDWithTimestamp('2016-09-01T00:00:00.0Z');
+
+        console.log('Running report aggregation for start: %s, end: %s', startDateId, endDateId);
 
         mongoPuller.pull({
           collection: 'reports',
           method: 'aggregate',
           query: [{
             $match: {
-              date: {
-                $gt: 'ISODate("2016-08-01T00:00:00.0Z")',
-                $lt: 'ISODate("2016-09-01T00:00:00.0Z")'
+              _id: {
+                '$gte': startDateId,
+                '$lt': endDateId
               }
             }
           },
