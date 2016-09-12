@@ -11,8 +11,8 @@ function River() {
   this.count = 0;
   this.finished = false;
 
-  var EsPusher = require('../app/modules/esPusher');
-  this.esPusher = new EsPusher({
+  var Es = require('../app/modules/es');
+  this.es = new Es({
     host: config.elasticsearch.HOST,
     port: config.elasticsearch.PORT,
     ssl: config.elasticsearch.SSL,
@@ -151,7 +151,7 @@ River.prototype.processNextItem = function processNextItem(myItem, cb) {
   //console.log('ITEM: ', JSON.stringify(myItem));
 
   this.processItem(myItem, function(processedItem) {
-    this.esPusher.push(processedItem, function(err) {
+    this.es.push(processedItem, function(err) {
       if (err) {
         return cb(err);
       }

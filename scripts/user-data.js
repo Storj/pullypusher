@@ -9,12 +9,12 @@ const config = require('config');
 const path = require('path');
 
 // Should load all modules dynamically
-var EsPusher = require('../app/modules/esPusher');
+var Es = require('../app/modules/es');
 var MongoPuller = require('../app/modules/mongoPuller');
 var userDataFilePath = path.join(__dirname, '../data-out/userDataFile.json');
 var mongo = require('mongodb');
 
-var esPusher = new EsPusher({
+var es = new Es({
   host: config.elasticsearch.host,
   port: config.elasticsearch.port,
   ssl: config.elasticsearch.ssl,
@@ -487,7 +487,7 @@ const exitGracefully = function exitGracefully() {
   mongoPuller.close(function() {
     console.log('[INDEX] Closed Mongo connection');
 
-    esPusher.close(function() {
+    es.close(function() {
       console.log('[INDEX] Closed ES connection');
 
       process.exit();
