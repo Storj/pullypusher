@@ -4,9 +4,9 @@
   "description": "Pull stats from one place and push to another",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
     "start-bridge-data": "NODE_ENV=production node scripts/bridge-data.js",
     "start-data-api": "NODE_ENV=dataapi node scripts/data-api.js",
+    "start-upload-stats": "NODE_ENV=uploadstats node scripts/upload-stats.js",
     "user-data": "NODE_ENV=production node scripts/user-data.js",
     "telemetry-report": "NODE_ENV=dataapi node scripts/telemetry_report.js",
     "test": "npm run testsuite && npm run linter && npm run coverage",

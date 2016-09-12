@@ -8,14 +8,14 @@ const async = require('async');
 
 function River() {
   var MongoPuller = require('../app/modules/mongoPuller');
-  var EsPusher = require('../app/modules/esPusher');
+  var Es = require('../app/modules/esPusher');
 
   this.userCount = 0;
 
   this.batchSize = 20;
   this.finished = false;
 
-  this.esPusher = new EsPusher({
+  this.es = new Es({
     host: config.elasticsearch.host,
     port: config.elasticsearch.port,
     ssl: config.elasticsearch.ssl,
@@ -212,7 +212,7 @@ River.prototype.processNextItem = function processNextItem(myItem, cb) {
   var self = this;
 
   this.processItem(myItem, function(processedItem) {
-    self.esPusher.push(processedItem, function(err) {
+    self.es.push(processedItem, function(err) {
       if (err) {
         return cb(err);
       }

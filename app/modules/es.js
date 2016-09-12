@@ -4,9 +4,9 @@ const config = require('config');
 const merge = require('merge');
 const es = require('elasticsearch');
 
-function EsPusher(options) {
-  if (!(this  instanceof EsPusher)) {
-    return new EsPusher(options);
+function Es(options) {
+  if (!(this  instanceof Es)) {
+    return new Es(options);
   }
 
   if (!options) {
@@ -18,7 +18,7 @@ function EsPusher(options) {
   this._init(options);
 }
 
-EsPusher.prototype._init = function _init(options) {
+Es.prototype._init = function _init(options) {
   this.host = options.host;
   this.port = options.port;
   this.ssl = options.ssl;
@@ -39,7 +39,7 @@ EsPusher.prototype._init = function _init(options) {
 
 };
 
-EsPusher.prototype.buildURI = function buildURI() {
+Es.prototype.buildURI = function buildURI() {
   var URI = '';
 
   if (this.ssl) {
@@ -57,7 +57,22 @@ EsPusher.prototype.buildURI = function buildURI() {
   return URI;
 };
 
-EsPusher.prototype.push = function push(options, callback) {
+Es.prototype.pull = function pull(options, callback) {
+  this.client.search({
+    index: options.index || this.index,
+    type: options.type || this.type,
+    body: options.body
+  }, function(err, response) {
+    if (err) {
+      console.log('Got error while pulling: %s', err);
+      return callback(err, null);
+    }
+
+    return callback(null, response);
+  });
+};
+
+Es.prototype.push = function push(options, callback) {
   // Add option to add custom tags here
   options.tags = [ 'pullypusher' ];
 
@@ -97,10 +112,10 @@ EsPusher.prototype.push = function push(options, callback) {
 };
 
 
-EsPusher.prototype.close = function close(callback) {
+Es.prototype.close = function close(callback) {
   this.client.close();
   return callback();
 };
 
 
-module.exports = EsPusher;
+module.exports = Es;

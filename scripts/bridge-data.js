@@ -9,10 +9,10 @@ const CronJob = require('cron').CronJob;
 
 // Should load all modules dynamically
 // var httpRequest = require('../app/modules/httpRequest');
-var EsPusher = require('../app/modules/esPusher');
+var Es = require('../app/modules/es');
 var MongoPuller = require('../app/modules/mongoPuller');
 
-var esPusher = new EsPusher({
+var es = new Es({
   host: config.elasticsearch.host,
   port: config.elasticsearch.port,
   ssl: config.elasticsearch.ssl,
@@ -57,7 +57,7 @@ var totalFarmerData = function totalFarmerData() {
       'totalTB': responseData.total_TB,
       'totalFarmers': responseData.total_farmers
     };
-    esPusher.push(esData, function(err) {
+    es.push(esData, function(err) {
       console.log('Done sending totalFarmerData to ES');
     });
   });
@@ -70,7 +70,7 @@ const exitGracefully = function exitGracefully() {
   mongoPuller.close(function() {
     console.log('[INDEX] Closed Mongo connection');
 
-    esPusher.close(function() {
+    es.close(function() {
       console.log('[INDEX] Closed ES connection');
 
       process.exit();
@@ -105,7 +105,7 @@ var pullFromMongo = function pullFromMongo() {
 
       console.log('Sending apiStatsData to ES: ', apiStatsData);
 
-      esPusher.push(apiStatsData, function(err) {
+      es.push(apiStatsData, function(err) {
         if (err) {
           return console.log('Error writing API file data to ES: ', err);
         }

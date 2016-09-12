@@ -1,4 +1,5 @@
 config/production*
+config/uploadstats*
 config/staging*
 config/dev*
 config/bridge-api*
