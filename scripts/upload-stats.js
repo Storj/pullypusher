@@ -44,7 +44,7 @@ var pull = function pull() {
     query: {
       bool: {
         must: [
-          { range: { 'timestamp': { 'gte': 'now-1d/d' } } },
+          { range: { 'timestamp': { 'gte': 'now-1h/d' } } },
           { match: { type: 'cli' } }
         ]
       }
