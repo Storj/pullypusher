@@ -42,13 +42,16 @@ var pull = function pull() {
       totalTimeout: 0
     };
 
+    var findSince = new Date() - 60 * 60 * 1000;
+
     var body = {
       size: 1000,
       query: {
         bool: {
           must: [
-            { range: { 'timestamp': { 'gte': 'now-1h/d' } } },
-            { match: { type: 'cli', environment: env } }
+            { range: { 'timestamp': { 'gte': findSince } } },
+            { match: { type: 'cli' } },
+            { match: { environment: env } }
           ]
         }
       }
