@@ -457,7 +457,7 @@ UserData.prototype.processShard = function processShard(
 
   // Push all contracts for this shard to the contract map
   shard.contracts.forEach(function(contract) {
-    if !(contractMap[contract.nodeID]) {
+    if (!contractMap[contract.nodeID]) {
       contractMap[contract.nodeID] = [];
     }
 
