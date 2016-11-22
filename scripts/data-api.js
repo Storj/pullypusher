@@ -23,22 +23,33 @@ var es = new Es({
   pass: config.elasticsearch.pass
 });
 
-var mongoPullerConfig = {
-  host: config.mongodb.host,
-  dbName: config.mongodb.db_name,
-  port: config.mongodb.port,
-  ssl: config.mongodb.ssl,
-  sslValidate: config.mongodb.ssl_validate,
-  user: config.mongodb.user,
-  pass: config.mongodb.pass
+var mongoPullerDataAPIConfig = {
+  host: config.mongodbDataAPI.host,
+  dbName: config.mongodbDataAPI.db_name,
+  port: config.mongodbDataAPI.port,
+  ssl: config.mongodbDataAPI.ssl,
+  sslValidate: config.mongodbDataAPI.ssl_validate,
+  user: config.mongodbDataAPI.user,
+  pass: config.mongodbDataAPI.pass
 };
 
-var mongoPuller = new MongoPuller(mongoPullerConfig);
+var mongoPullerBridgeConfig = {
+  host: config.mongodbBridge.host,
+  dbName: config.mongodbBridge.db_name,
+  port: config.mongodbBridge.port,
+  ssl: config.mongodbBridge.ssl,
+  sslValidate: config.mongodbBridge.ssl_validate,
+  user: config.mongodbBridge.user,
+  pass: config.mongodbBridge.pass
+};
+
+var mongoPullerDataAPI = new MongoPuller(mongoPullerDataAPIConfig);
+var mongoPullerBridge = new MongoPuller(mongoPullerBridgeConfig);
 
 var pullFromMongo = function pullFromMongo() {
   console.log('Pulling data from MongoDB');
 
-  mongoPuller.open(function(err) {
+  mongoPullerDataAPI.open(function(err) {
     if (err) {
       return console.log('Error connecting to mongo: %s', err);
     }
@@ -50,7 +61,7 @@ var pullFromMongo = function pullFromMongo() {
 
       console.log('Done with Mongo, trying to close connection...');
 
-      mongoPuller.close(function(err) {
+      mongoPullerDataAPI.close(function(err) {
         if (err) {
           console.log('Error closing mongo connection: %s', err);
         }
@@ -77,7 +88,7 @@ var pullFromMongo = function pullFromMongo() {
 
     async.parallel([
       function(callback) {
-        mongoPuller.pull({
+        mongoPullerDataAPI.pull({
           collection: 'reports',
           method: 'count'
         }, function(err, count) {
@@ -91,7 +102,7 @@ var pullFromMongo = function pullFromMongo() {
         var dateFrom = new Date(dateFromMS);
         var dateTo = new Date();
 
-        mongoPuller.pull({
+        mongoPullerDataAPI.pull({
           collection: 'reports',
           method: 'aggregate',
           query: [
@@ -128,7 +139,7 @@ var pullFromMongo = function pullFromMongo() {
         var dateFrom = new Date(dateFromMS);
         var dateTo = new Date();
 
-        mongoPuller.pull({
+        mongoPullerDataAPI.pull({
           collection: 'reports',
           method: 'aggregate',
           query: [
@@ -179,7 +190,7 @@ var start = function start() {
 const exitGracefully = function exitGracefully() {
   console.log('Exiting...');
 
-  mongoPuller.close(function() {
+  mongoPullerDataAPI.close(function() {
     console.log('[INDEX] Closed Mongo connection');
 
     es.close(function() {

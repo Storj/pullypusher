@@ -455,14 +455,25 @@ UserData.prototype.processShard = function processShard(
   var downloadCount = 0;
   var dataDownload = 0;
 
+  // Push all contracts for this shard to the contract map
   shard.contracts.forEach(function(contract) {
-    contractMap[contract.nodeID] = contract.contract;
+    if !(contractMap[contract.nodeID]) {
+      contractMap[contract.nodeID] = [];
+    }
+
+    contractMap[contract.nodeID].push(contract.contract);
+
     self.contractCounter++;
   });
 
   // Get the download count for each shard
   shard.meta.forEach(function(metaItem) {
-    var dataSize = contractMap[metaItem.nodeID].data_size;
+    var dataSize = 0;
+
+    contractMap[metaItem.nodeID].forEach(function(contract) {
+      dataSize += contract.data_size;
+    });
+
     var contractCount = shard.contracts.length;
 
     downloadCount = metaItem.meta.downloadCount;

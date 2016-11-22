@@ -85,8 +85,8 @@ var pullFromMongo = function pullFromMongo() {
         });
       },
       function(callback) {
-        var startDateId = objectIDWithTimestamp('2016-09-01T00:00:00.0Z');
-        var endDateId = objectIDWithTimestamp('2016-10-01T00:00:00.0Z');
+        var startDateId = objectIDWithTimestamp('2016-10-01T00:00:00.0Z');
+        var endDateId = objectIDWithTimestamp('2016-11-01T00:00:00.0Z');
 
         console.log('Running report aggregation for start: %s, end: %s', startDateId, endDateId);
 
