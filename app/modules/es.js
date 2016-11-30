@@ -92,10 +92,18 @@ Es.prototype.push = function push(options, callback) {
   ).slice(-2) + '.' + ('0' + date.getDate()).slice(-2);
 
   //console.log('index name %s', this.index + '-' + indexDate);
+  //
+  console.log('pushing index: %s', this.index + '-' + indexDate);
+  console.log('pushing type: %s', this.type);
+  console.log('pushing body %j', options);
+
+  options.index = this.index + '-' + indexDate;
+  options.type = this.type;
 
   this.client.create({
     index: this.index + '-' + indexDate,
     type: this.type,
+    id: new Date().getTime() + Math.random().toString(36).substring(7),
     body: options
   }, function(err, response) {
     //console.log('Created ES client');
