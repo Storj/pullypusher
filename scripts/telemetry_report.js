@@ -104,25 +104,25 @@ var pullFromMongo = function pullFromMongo() {
           {
             $group: {
               _id: {
-                'node_id': '$contact.nodeID'
+                'node_id': '$contactNodeId'
               },
               reportCount: {
                 '$sum': 1
               },
-              payment: {
-                $first: '$payment'
+              paymentAddress: {
+                $first: '$paymentAddress'
               },
               signature: {
                 $first: '$signature'
               },
-              storage: {
-                $first: '$storage'
+              storageAllocation: {
+                $first: '$storageAllocation'
               },
-              bandwidth: {
-                $first: '$bandwidth'
+              storageUsed: {
+                $first: '$storageUsed'
               },
-              contact: {
-                $first: '$contact'
+              contactNodeId: {
+                $first: '$contactNodeId'
               }
             }
           },
@@ -137,20 +137,20 @@ var pullFromMongo = function pullFromMongo() {
               distinctCount: {
                 '$sum': 1
               },
-              payment: {
-                '$first': '$payment'
+              paymentAddress: {
+                '$first': '$paymentAddress'
               },
               signature: {
                 '$first': '$signature'
               },
-              storage: {
-                '$first': '$storage'
+              storageAllocation: {
+                '$first': '$storageAllocation'
               },
-              bandwidth: {
-                '$first': '$bandwidth'
+              storageUsed: {
+                '$first': '$storageUsed'
               },
-              contact: {
-                '$first': '$contact'
+              contactNodeId: {
+                '$first': '$contactNodeId'
               }
             }
           }]
