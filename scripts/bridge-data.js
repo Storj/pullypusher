@@ -214,9 +214,12 @@ var pullFromMongo = function pullFromMongo() {
           if (err) {
             console.log('Error while pulling aggregations: ', err);
           }
-          apiStatsData.totalSize = result[0].total;
-          console.log('Aggregation: ', result[0].total);
-          callback(err, 'aggregate');
+
+          if (result && result[0]) {
+            apiStatsData.totalSize = result[0].total;
+            console.log('Aggregation: ', result[0].total);
+            callback(err, 'aggregate');
+          }
         });
       }
     ], function(err, result) {
